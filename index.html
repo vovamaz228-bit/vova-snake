@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Змейка — Вова (версия 8)</title>
+<title>Змейка — Вова (версия 9)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -142,7 +142,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 8</p>
+    <p id="gateVer">версия 9</p>
   </div>
 </div>
 
@@ -213,19 +213,23 @@
 (function() {
   'use strict';
 
+  // !!! ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ИЗ FIREBASE (ОБЯЗАТЕЛЬНО С /scores.json В КОНЦЕ) !!!
+  var FIREBASE_URL = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores.json'; 
+  // (я уже вставил примерный адрес с вашего скриншота, но лучше проверьте его в Firebase)
+
   var GRID = 20;
-  var canvas  = document.getElementById('c');
-  var ctx     = canvas.getContext('2d');
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
   var overlay = document.getElementById('overlay');
   var ovTitle = document.getElementById('ov-title');
-  var ovText  = document.getElementById('ov-text');
+  var ovText = document.getElementById('ov-text');
   var ovActions = document.getElementById('ov-actions');
   var scoreEl = document.getElementById('score');
-  var bestEl  = document.getElementById('best');
+  var bestEl = document.getElementById('best');
   var hudPlayer = document.getElementById('hudPlayer');
 
   var LS_PLAYERS = 'snake.players.v2';
-  var LS_LAST    = 'snake.lastPlayer.v2';
+  var LS_LAST = 'snake.lastPlayer.v2';
 
   var players = {};
   var currentPlayer = '';
@@ -314,7 +318,6 @@
     state = 'name';
   }
 
-  /* ---------- ЭКРАН ВВОДА ИМЕНИ (только поле + кнопка «Меню») ---------- */
   function screenName() {
     state = 'name';
     currentScreen = screenName;
@@ -335,7 +338,6 @@
       ev.preventDefault();
       var name = input.value.trim().replace(/\s+/g, ' ').slice(0, 16);
       if (!name) {
-        // если имени нет — берём последнее сохранённое, если и его нет — подсветим
         name = localStorage.getItem(LS_LAST) || '';
         if (!name) { shake(input); return; }
       }
@@ -363,7 +365,6 @@
     screenReady();
   }
 
-  /* ---------- ГЛАВНОЕ МЕНЮ (все кнопки) ---------- */
   function screenReady() {
     state = 'ready';
     currentScreen = screenReady;
@@ -372,13 +373,15 @@
       'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>' +
       'Стрелки / WASD / свайп — движение<br>Пробел — пауза',
       '<button class="btn primary" id="btnPlay">Играть</button>' +
-      '<button class="btn" id="btnStatsReady">Статистика</button>' +
+      '<button class="btn" id="btnGlobalStats">🌍 Общий рейтинг</button>' +
+      '<button class="btn" id="btnStatsReady">Статистика (тут)</button>' +
       '<button class="btn" id="btnAlleyReady">Аллея игроков</button>' +
       '<button class="btn ghost" id="btnChangeReady">Сменить игрока</button>' +
       '<button class="btn ghost" id="btnSecretReady">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutReady">Выйти из аккаунта</button>'
     );
     document.getElementById('btnPlay').addEventListener('click', start);
+    document.getElementById('btnGlobalStats').addEventListener('click', showGlobalStats);
     document.getElementById('btnStatsReady').addEventListener('click', showStats);
     document.getElementById('btnAlleyReady').addEventListener('click', showAlley);
     document.getElementById('btnChangeReady').addEventListener('click', screenName);
@@ -386,7 +389,68 @@
     document.getElementById('btnLogoutReady').addEventListener('click', logout);
   }
 
-  /* ---------- АЛЛЕЯ ИГРОКОВ ---------- */
+  function showGlobalStats() {
+    var prevState = state;
+    var prevScreen = currentScreen;
+    state = 'globalstats';
+    currentScreen = showGlobalStats;
+    
+    returnFromStats = function() {
+      state = prevState;
+      currentScreen = prevScreen;
+      if (prevScreen) prevScreen();
+    };
+
+    if (FIREBASE_URL.indexOf('http') === -1) {
+      showScreen('Ошибка', 'Вы не вставили ссылку на Firebase в код игры.', '<button class="btn primary" id="btnBack">Назад</button>');
+      document.getElementById('btnBack').addEventListener('click', function() { if (returnFromStats) returnFromStats(); });
+      return;
+    }
+
+    showScreen('Общий рейтинг', '<div style="color:#8ea6c9;padding:16px">Загрузка с сервера...</div>', '<button class="btn primary" id="btnBack">Назад</button>');
+    document.getElementById('btnBack').addEventListener('click', function() { if (returnFromStats) returnFromStats(); });
+
+    fetch(FIREBASE_URL)
+      .then(res => res.json())
+      .then(data => {
+        var list = [];
+        if (data) {
+          for (var key in data) {
+            if (data[key] && data[key].name) {
+              list.push(data[key]);
+            }
+          }
+        }
+        list.sort(function(a, b) { return b.score - a.score; });
+        
+        var body = '';
+        if (list.length === 0) {
+          body = '<div style="color:#8ea6c9;padding:16px">Пока никто не играл в интернете</div>';
+        } else {
+          var rows = list.map(function(p, i) {
+            return '<tr>' +
+              '<td class="num" style="color:#8ea6c9">' + (i + 1) + '</td>' +
+              '<td>' + esc(p.name) + (p.name === currentPlayer ? ' <span style="color:#8ea6c9;font-size:10px">(ты)</span>' : '') + '</td>' +
+              '<td class="num" style="color:#46e6a0;font-weight:700;">' + p.score + '</td>' +
+              '<td class="num" style="color:#8ea6c9;font-size:11px">' + fmtDate(p.time) + '</td>' +
+            '</tr>';
+          }).join('');
+          
+          body = '<table class="stats">' +
+            '<thead><tr><th>#</th><th>Игрок</th><th style="text-align:right">Счёт</th><th style="text-align:right">Когда</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+          '</table>';
+        }
+
+        showScreen('🌍 Общий рейтинг', body, '<button class="btn primary" id="btnBack2">Назад</button>');
+        document.getElementById('btnBack2').addEventListener('click', function() { if (returnFromStats) returnFromStats(); });
+      })
+      .catch(err => {
+        showScreen('Ошибка', 'Не удалось загрузить данные. Проверьте интернет или ссылку Firebase.<br><br><span style="font-size:10px;color:#ff4d6d">' + err.message + '</span>', '<button class="btn primary" id="btnBack3">Назад</button>');
+        document.getElementById('btnBack3').addEventListener('click', function() { if (returnFromStats) returnFromStats(); });
+      });
+  }
+
   function showAlley() {
     var prevState = state;
     var prevScreen = currentScreen;
@@ -537,6 +601,19 @@
     updateHud();
   }
 
+  function sendScoreToServer() {
+    if (FIREBASE_URL.indexOf('http') === -1 || score === 0) return;
+    fetch(FIREBASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentPlayer,
+        score: score,
+        time: Date.now()
+      })
+    }).catch(function(e) { console.log('Ошибка отправки на сервер:', e); });
+  }
+
   function die() {
     if (state !== 'play') return;
     state = 'over';
@@ -547,6 +624,8 @@
 
     var prevBest = players[currentPlayer] ? players[currentPlayer].best : 0;
     recordGame();
+    sendScoreToServer(); 
+    
     var p = players[currentPlayer];
     var isRecord = score > prevBest && score > 0;
 
@@ -557,15 +636,15 @@
       'Счёт: <b style="color:#fff">' + score + '</b> &nbsp; Рекорд: <b style="color:#46e6a0">' + p.best + '</b>' +
       (isRecord ? '<br><span style="color:#ffd166;font-weight:700">🏆 Новый рекорд!</span>' : ''),
       '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
+      '<button class="btn" id="btnGlobalStatsOver">🌍 Общий рейтинг</button>' +
       '<button class="btn" id="btnStatsOver">Статистика</button>' +
-      '<button class="btn" id="btnAlleyOver">Аллея игроков</button>' +
       '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
       '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
     );
     document.getElementById('btnAgain').addEventListener('click', start);
+    document.getElementById('btnGlobalStatsOver').addEventListener('click', showGlobalStats);
     document.getElementById('btnStatsOver').addEventListener('click', showStats);
-    document.getElementById('btnAlleyOver').addEventListener('click', showAlley);
     document.getElementById('btnChangeOver').addEventListener('click', screenName);
     document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
     document.getElementById('btnLogoutOver').addEventListener('click', logout);
@@ -580,15 +659,15 @@
       'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>' +
       'Счёт: <b style="color:#fff">' + score + '</b> &nbsp; Рекорд: <b style="color:#46e6a0">' + p.best + '</b>',
       '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
+      '<button class="btn" id="btnGlobalStatsOver">🌍 Общий рейтинг</button>' +
       '<button class="btn" id="btnStatsOver">Статистика</button>' +
-      '<button class="btn" id="btnAlleyOver">Аллея игроков</button>' +
       '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
       '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
     );
     document.getElementById('btnAgain').addEventListener('click', start);
+    document.getElementById('btnGlobalStatsOver').addEventListener('click', showGlobalStats);
     document.getElementById('btnStatsOver').addEventListener('click', showStats);
-    document.getElementById('btnAlleyOver').addEventListener('click', showAlley);
     document.getElementById('btnChangeOver').addEventListener('click', screenName);
     document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
     document.getElementById('btnLogoutOver').addEventListener('click', logout);
@@ -614,7 +693,7 @@
 
     var body;
     if (!list.length) {
-      body = '<div style="color:#8ea6c9;padding:16px">Пока никто не играл</div>';
+      body = '<div style="color:#8ea6c9;padding:16px">Пока никто не играл (на этом устройстве)</div>';
     } else {
       var rows = list.map(function(item, i){
         var name = item[0], p = item[1];
@@ -638,7 +717,7 @@
     }
 
     showScreen(
-      'Статистика',
+      'Статистика (это устройство)',
       body,
       '<button class="btn primary" id="btnBack">Назад</button>' +
       '<button class="btn danger" id="btnClear">Очистить</button>'
@@ -878,4 +957,4 @@
 })();
 </script>
 </body>
-</HTML>
+</html>
