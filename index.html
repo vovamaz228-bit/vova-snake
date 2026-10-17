@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 22)</title>
+<title>Онлайн Flappy Bird — Вова (версия 23)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -95,7 +95,6 @@
     color:#fff;font:inherit;font-size:16px;text-align:center;outline:none;
   }
   .name-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
-  .name-input.error{border-color:rgba(255,77,109,.9);animation:shake .3s}
   .stats{width:100%;border-collapse:collapse;font-size:13px}
   .stats th,.stats td{padding:7px 6px;text-align:left;border-bottom:1px solid rgba(120,180,255,.1)}
   .stats th{color:#8ea6c9;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
@@ -104,6 +103,9 @@
   .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
   .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
 </style>
+<!-- Подключаем официальный SDK Firebase для WebSockets (мгновенная передача данных) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -115,7 +117,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 22</p>
+    <p id="gateVer">версия 23</p>
   </div>
 </div>
 
@@ -181,7 +183,10 @@
 (function() {
   'use strict';
 
-  var FIREBASE_BASE = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/'; 
+  // Инициализация Firebase
+  var firebaseConfig = { databaseURL: "https://vova-snake-420c6-default-rtdb.firebaseio.com" };
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
 
   var GRID = 20;
   var canvas = document.getElementById('c');
@@ -220,14 +225,15 @@
   // Переменные онлайна
   var onlineRoom = '';
   var onlineData = null;
-  var onlineInterval = null;
   var onlineBirdY = 150;
   var onlineBirdVy = 0;
   var onlineStartTime = 0;
   var onlinePipes = [];
   var onlineScore = 0;
   var onlineState = 'waiting'; 
-  var onlinePassedPipes = {}; // Чтобы не начислять очки дважды
+  var onlinePassedPipes = {};
+  var syncInterval = null;
+  var roomRef = null;
 
   function savePlayers() { try { localStorage.setItem('snake.players.v2', JSON.stringify(players)); } catch (e) {} }
   function esc(s) {
@@ -352,7 +358,7 @@
       if (prevScreen) prevScreen();
     };
 
-    var url = FIREBASE_BASE + 'scores/' + gameType + '.json';
+    var url = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores/' + gameType + '.json';
     var gameName = gameType === 'snake' ? 'Змейка' : 'Flappy Bird';
 
     showScreen('Рейтинг: ' + gameName, '<div style="color:#8ea6c9;padding:16px">Загрузка...</div>', '<button class="btn primary" id="btnBack">Назад</button>');
@@ -393,7 +399,7 @@
       });
   }
 
-  /* ================= ОНЛАЙН ЛОББИ ================= */
+  /* ================= ОНЛАЙН ЛОББИ (WEBSOCKETS) ================= */
   function showOnlineLobby() {
     state = 'lobby';
     currentScreen = showOnlineLobby;
@@ -410,7 +416,6 @@
       joinRoom(room);
     });
     document.getElementById('btnBackLobby').addEventListener('click', function() {
-      if (onlineInterval) { clearInterval(onlineInterval); onlineInterval = null; }
       screenReady();
     });
   }
@@ -423,60 +428,58 @@
     showScreen('Комната: ' + onlineRoom, 'Подключение...', '<button class="btn danger" id="btnQuitLobby">Отмена</button>');
     document.getElementById('btnQuitLobby').addEventListener('click', leaveRoom);
 
-    fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/players/' + deviceId + '.json', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: currentPlayer, y: 150, score: 0, alive: true })
-    }).then(() => {
-      // Сбрасываем статус комнаты, чтобы не попасть в старую игру
-      fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/status.json', {
-          method: 'PUT',
-          body: JSON.stringify('waiting')
-      }).then(() => {
-          if (onlineInterval) clearInterval(onlineInterval);
-          // Ускоряем опрос до 500мс для плавного онлайна
-          onlineInterval = setInterval(updateOnlineLobby, 500);
-          updateOnlineLobby(); 
-      });
+    roomRef = db.ref('rooms/' + onlineRoom);
+    
+    // Если мы первые, сбрасываем статус в 'waiting'
+    roomRef.child('status').set('waiting');
+    
+    // Добавляем себя в комнату
+    roomRef.child('players/' + deviceId).set({
+        name: currentPlayer, y: px / 2, score: 0, alive: true
     });
-  }
+    
+    // Удаляем себя при выходе/закрытии вкладки
+    roomRef.child('players/' + deviceId).onDisconnect().remove();
 
-  function updateOnlineLobby() {
-    fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '.json')
-      .then(res => res.json())
-      .then(data => {
-        onlineData = data || {};
+    // Слушаем изменения в комнате мгновенно (WebSocket)
+    roomRef.on('value', function(snapshot) {
+        var data = snapshot.val();
+        if (!data) return;
+        onlineData = data;
         
-        // Подключаемся к запущенной игре
-        if (onlineData.status === 'playing' && onlineState === 'waiting') {
-          var timeSinceStart = Date.now() - (onlineData.startTime || 0);
-          if (timeSinceStart < 5000) { // Если игра началась недавно, подключаемся
-              onlineState = 'playing';
-              onlineStartTime = onlineData.startTime;
-              onlineBirdY = px / 2;
-              onlineBirdVy = 0;
-              onlineScore = 0;
-              onlinePipes = [];
-              onlinePassedPipes = {};
-              hideOverlay();
-              return;
-          }
+        // Если хост запустил игру
+        if (data.status === 'playing' && onlineState === 'waiting') {
+            onlineState = 'playing';
+            onlineStartTime = data.startTime;
+            onlineBirdY = px / 2;
+            onlineBirdVy = 0;
+            onlineScore = 0;
+            onlinePipes = [];
+            onlinePassedPipes = {};
+            hideOverlay();
+        } 
+        // Если игру сбросили, возвращаемся в лобби
+        else if (data.status === 'waiting' && onlineState === 'playing') {
+            onlineState = 'waiting';
+            renderLobbyWaiting();
         }
 
-        // Отправляем координаты
-        if (onlineState === 'playing') {
-          fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/players/' + deviceId + '.json', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ y: onlineBirdY, score: onlineScore })
-          }).catch(e => {});
-        }
-
-        // Обновляем экран лобби, если ждем
+        // Обновляем экран лобби, если мы в нём
         if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
-          renderLobbyWaiting();
+            renderLobbyWaiting();
         }
-      }).catch(e => { console.log('Ошибка сети', e); });
+    });
+was     // Запускаем отправку наших координат (10 раз в секунду)
+    if (syncInterval) clearInterval(syncInterval);
+    syncInterval = setInterval(function() {
+        if (onlineState === 'playing' && onlineRoom) {
+            db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({
+                y: onlineBirdY,
+                score: onlineScore,
+                alive: onlineState === 'playing'
+            });
+        }
+    }, 100);
   }
 
   function renderLobbyWaiting() {
@@ -505,21 +508,9 @@
     if (pCount >= 2) {
         document.getElementById('btnStartOnline').addEventListener('click', function() {
           var startTime = Date.now();
-          fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '.json', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'playing', startTime: startTime })
+          db.ref('rooms/' + onlineRoom).update({
+            status: 'playing', startTime: startTime
           });
-          
-          // Мгновенно запускаем игру для того, кто нажал
-          onlineState = 'playing';
-          onlineStartTime = startTime;
-          onlineBirdY = px / 2;
-          onlineBirdVy = 0;
-          onlineScore = 0;
-          onlinePipes = [];
-          onlinePassedPipes = {};
-          hideOverlay();
         });
     }
 
@@ -528,9 +519,10 @@
 
   function leaveRoom() {
     if (onlineRoom) {
-      fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/players/' + deviceId + '.json', { method: 'DELETE' });
+      db.ref('rooms/' + onlineRoom + '/players/' + deviceId).remove();
+      if (roomRef) roomRef.off();
     }
-    if (onlineInterval) { clearInterval(onlineInterval); onlineInterval = null; }
+    if (syncInterval) { clearInterval(syncInterval); syncInterval = null; }
     onlineState = 'waiting';
     onlineData = null;
     screenReady();
@@ -540,7 +532,8 @@
   function updateOnlineFlappy(dt) {
     if (onlineState !== 'playing' || !onlineData) return;
 
-    onlineBirdVy += 0.3 * (dt / 16); // Чуть сильнее гравитация
+    // Гравитация и полет
+    onlineBirdVy += 0.25 * (dt / 16);
     onlineBirdY += onlineBirdVy * (dt / 16);
 
     if (onlineBirdY < 0) { onlineBirdY = 0; onlineBirdVy = 0; }
@@ -549,6 +542,7 @@
        return dieOnlineFlappy();
     }
 
+    // Генерация труб на основе времени (одинаково для всех)
     var timeElapsed = Date.now() - onlineStartTime;
     var pipeSpacing = 1500;
     var pipeSpeed = 0.15;
@@ -593,11 +587,9 @@
     onlineState = 'over';
     beep(150, 0.4, 'sawtooth', 0.07);
     
-    fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/players/' + deviceId + '.json', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ alive: false })
-    });
+    if (onlineRoom) {
+        db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: false });
+    }
 
     showScreen(
       'Ты упал!',
@@ -629,6 +621,7 @@
         if (pid === deviceId) continue;
         var op = onlineData.players[pid];
         if (op.alive) {
+          // Рисуем друга
           ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 2;
@@ -645,6 +638,7 @@
       }
     }
 
+    // Рисуем себя
     ctx.fillStyle = '#fadd44';
     ctx.strokeStyle = '#d4a31d';
     ctx.lineWidth = 2;
@@ -776,7 +770,7 @@
 
   function sendScoreToServer(gameType, finalScore) {
     if (!finalScore) return;
-    var url = FIREBASE_BASE + 'scores/' + gameType + '/' + deviceId + '.json';
+    var url = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores/' + gameType + '/' + deviceId + '.json';
     fetch(url).then(res => res.json()).then(ex => {
        if (!ex || finalScore > ex.score) {
            fetch(url, {
@@ -795,9 +789,7 @@
     }
   }
 
-  // ИСПРАВЛЕННАЯ ОТРИСОВКА (чтобы змейка не вылетала в других режимах)
   function draw() {
-    // Очищаем экран
     ctx.fillStyle = '#0c1224';
     ctx.fillRect(0, 0, px, px);
 
@@ -805,7 +797,7 @@
       if (onlineState === 'playing' || onlineState === 'over') {
         drawOnlineFlappy(); 
       }
-      return; // Останавливаем дальнейшую отрисовку
+      return; 
     }
     
     if (state === 'flappy') {
@@ -899,4 +891,3 @@
 </script>
 </body>
 </html>
-
