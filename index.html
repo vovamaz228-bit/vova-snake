@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 21)</title>
+<title>Онлайн Flappy Bird — Вова (версия 22)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -115,7 +115,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 21</p>
+    <p id="gateVer">версия 22</p>
   </div>
 </div>
 
@@ -217,6 +217,7 @@
   var flappyState = 'ready';
   var flappySpeed = 2;
 
+  // Переменные онлайна
   var onlineRoom = '';
   var onlineData = null;
   var onlineInterval = null;
@@ -226,6 +227,7 @@
   var onlinePipes = [];
   var onlineScore = 0;
   var onlineState = 'waiting'; 
+  var onlinePassedPipes = {}; // Чтобы не начислять очки дважды
 
   function savePlayers() { try { localStorage.setItem('snake.players.v2', JSON.stringify(players)); } catch (e) {} }
   function esc(s) {
@@ -426,14 +428,14 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: currentPlayer, y: 150, score: 0, alive: true })
     }).then(() => {
-      // Как только зашли, принудительно сбрасываем статус в 'waiting'
-      // чтобы не влететь в старую игру
+      // Сбрасываем статус комнаты, чтобы не попасть в старую игру
       fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/status.json', {
           method: 'PUT',
           body: JSON.stringify('waiting')
       }).then(() => {
           if (onlineInterval) clearInterval(onlineInterval);
-          onlineInterval = setInterval(updateOnlineLobby, 1000);
+          // Ускоряем опрос до 500мс для плавного онлайна
+          onlineInterval = setInterval(updateOnlineLobby, 500);
           updateOnlineLobby(); 
       });
     });
@@ -445,31 +447,23 @@
       .then(data => {
         onlineData = data || {};
         
-        // Защита от "зомби-комнат" (старых зависших игр)
+        // Подключаемся к запущенной игре
         if (onlineData.status === 'playing' && onlineState === 'waiting') {
           var timeSinceStart = Date.now() - (onlineData.startTime || 0);
-          
-          if (timeSinceStart > 5000) {
-              // Если игра началась больше 5 секунд назад, а мы только зашли — сбрасываем её
-              fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/status.json', {
-                  method: 'PUT',
-                  body: JSON.stringify('waiting')
-              });
-              onlineData.status = 'waiting';
-          } else {
-              // Игра началась только что, подключаемся
+          if (timeSinceStart < 5000) { // Если игра началась недавно, подключаемся
               onlineState = 'playing';
               onlineStartTime = onlineData.startTime;
               onlineBirdY = px / 2;
               onlineBirdVy = 0;
               onlineScore = 0;
               onlinePipes = [];
+              onlinePassedPipes = {};
               hideOverlay();
               return;
           }
         }
 
-        // Отправляем свои координаты, если играем
+        // Отправляем координаты
         if (onlineState === 'playing') {
           fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '/players/' + deviceId + '.json', {
             method: 'PATCH',
@@ -478,7 +472,7 @@
           }).catch(e => {});
         }
 
-        // Отрисовываем лобби
+        // Обновляем экран лобби, если ждем
         if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
           renderLobbyWaiting();
         }
@@ -510,11 +504,22 @@
 
     if (pCount >= 2) {
         document.getElementById('btnStartOnline').addEventListener('click', function() {
+          var startTime = Date.now();
           fetch(FIREBASE_BASE + 'rooms/' + onlineRoom + '.json', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'playing', startTime: Date.now() })
+            body: JSON.stringify({ status: 'playing', startTime: startTime })
           });
+          
+          // Мгновенно запускаем игру для того, кто нажал
+          onlineState = 'playing';
+          onlineStartTime = startTime;
+          onlineBirdY = px / 2;
+          onlineBirdVy = 0;
+          onlineScore = 0;
+          onlinePipes = [];
+          onlinePassedPipes = {};
+          hideOverlay();
         });
     }
 
@@ -535,7 +540,7 @@
   function updateOnlineFlappy(dt) {
     if (onlineState !== 'playing' || !onlineData) return;
 
-    onlineBirdVy += 0.25 * (dt / 16);
+    onlineBirdVy += 0.3 * (dt / 16); // Чуть сильнее гравитация
     onlineBirdY += onlineBirdVy * (dt / 16);
 
     if (onlineBirdY < 0) { onlineBirdY = 0; onlineBirdVy = 0; }
@@ -567,8 +572,8 @@
             
             onlinePipes.push({ x: pipeX, topH: topH, id: i });
             
-            if (pipeX < 50 && !window['passed_' + i]) {
-               window['passed_' + i] = true;
+            if (pipeX < 50 && !onlinePassedPipes[i]) {
+               onlinePassedPipes[i] = true;
                onlineScore++;
                beep(800, 0.05, 'sine', 0.05);
             }
@@ -790,10 +795,19 @@
     }
   }
 
+  // ИСПРАВЛЕННАЯ ОТРИСОВКА (чтобы змейка не вылетала в других режимах)
   function draw() {
-    if (state === 'online' && (onlineState === 'playing' || onlineState === 'over')) {
-      drawOnlineFlappy(); return;
+    // Очищаем экран
+    ctx.fillStyle = '#0c1224';
+    ctx.fillRect(0, 0, px, px);
+
+    if (state === 'online') {
+      if (onlineState === 'playing' || onlineState === 'over') {
+        drawOnlineFlappy(); 
+      }
+      return; // Останавливаем дальнейшую отрисовку
     }
+    
     if (state === 'flappy') {
       ctx.fillStyle = '#70c5ce'; ctx.fillRect(0, 0, px, px);
       var pWidth = px * 0.15; ctx.fillStyle = '#73bf2e'; ctx.strokeStyle = '#558c22'; ctx.lineWidth = 3;
@@ -806,13 +820,15 @@
       ctx.fillStyle = '#fff'; ctx.font = 'bold ' + (px * 0.1) + 'px Arial'; ctx.textAlign = 'center'; ctx.fillText(flappyScore, px / 2, px * 0.1);
       return;
     }
-    if (!snake) return;
-    ctx.fillStyle = '#0c1224'; ctx.fillRect(0, 0, px, px);
-    for (var i = snake.length - 1; i >= 0; i--) {
-      var s = snake[i]; ctx.fillStyle = i === 0 ? '#46e6a0' : '#298f62';
-      ctx.beginPath(); ctx.arc((s.x + 0.5) * cell, (s.y + 0.5) * cell, cell * 0.4, 0, Math.PI * 2); ctx.fill();
+
+    if (state === 'play' || state === 'over' || state === 'pause') {
+      if (!snake) return;
+      for (var i = snake.length - 1; i >= 0; i--) {
+        var s = snake[i]; ctx.fillStyle = i === 0 ? '#46e6a0' : '#298f62';
+        ctx.beginPath(); ctx.arc((s.x + 0.5) * cell, (s.y + 0.5) * cell, cell * 0.4, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#ff4d6d'; ctx.beginPath(); ctx.arc((food.x + 0.5) * cell, (food.y + 0.5) * cell, cell * 0.33, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = '#ff4d6d'; ctx.beginPath(); ctx.arc((food.x + 0.5) * cell, (food.y + 0.5) * cell, cell * 0.33, 0, Math.PI * 2); ctx.fill();
   }
 
   function resize() {
@@ -849,7 +865,7 @@
     if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') {
       e.preventDefault();
       if (state === 'flappy' && flappyState === 'playing') { flappyBird.vy = flappyBird.jump; beep(400, 0.05); }
-      if (state === 'online' && onlineState === 'playing') { onlineBirdVy = -4.5; beep(400, 0.05); }
+      if (state === 'online' && onlineState === 'playing') { onlineBirdVy = -5.5; beep(400, 0.05); }
     }
     if (state === 'play') {
       var map = {ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0}, w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0}};
@@ -860,12 +876,12 @@
 
   canvas.addEventListener('mousedown', function() {
     if (state === 'flappy' && flappyState === 'playing') { flappyBird.vy = flappyBird.jump; beep(400, 0.05); }
-    if (state === 'online' && onlineState === 'playing') { onlineBirdVy = -4.5; beep(400, 0.05); }
+    if (state === 'online' && onlineState === 'playing') { onlineBirdVy = -5.5; beep(400, 0.05); }
   });
 
   canvas.addEventListener('touchstart', function(e) {
     if (state === 'flappy' && flappyState === 'playing') { e.preventDefault(); flappyBird.vy = flappyBird.jump; beep(400, 0.05); }
-    if (state === 'online' && onlineState === 'playing') { e.preventDefault(); onlineBirdVy = -4.5; beep(400, 0.05); }
+    if (state === 'online' && onlineState === 'playing') { e.preventDefault(); onlineBirdVy = -5.5; beep(400, 0.05); }
   }, {passive: false});
 
   window.addEventListener('resize', resize);
@@ -883,3 +899,4 @@
 </script>
 </body>
 </html>
+
