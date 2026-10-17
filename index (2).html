@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Змейка — Вова (версия 8)</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{
+    background:radial-gradient(circle at 50% -10%,#16223f 0%,#080b14 55%,#05070d 100%);
+    color:#e8f1ff;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    display:flex;align-items:center;justify-content:center;min-height:100dvh;
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  #gate{
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(6,10,20,.94);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  #gateCard{
+    background:rgba(10,16,30,.98);
+    border:1px solid rgba(120,180,255,.35);
+    border-radius:18px;padding:24px;max-width:340px;width:100%;
+    text-align:center;box-shadow:0 20px 60px -20px rgba(40,140,255,.5);
+  }
+  #gateCard h2{margin:0 0 6px;color:#fff;font-size:22px}
+  #gateCard p.sub{color:#8ea6c9;margin:0 0 16px;font-size:13px}
+  .gate-input{
+    width:100%;padding:12px;border-radius:12px;
+    border:1px solid rgba(120,180,255,.35);
+    background:rgba(6,10,20,.9);color:#fff;
+    font-size:18px;text-align:center;outline:none;
+  }
+  .gate-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
+  .gate-input.error{border-color:rgba(255,77,109,.9);animation:shake .3s}
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}
+  }
+  #gateBtn{
+    width:100%;margin-top:12px;padding:12px;border-radius:12px;border:none;
+    background:linear-gradient(90deg,#46e6a0,#3aa8ff);
+    color:#06281f;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  #gateBtn:active{transform:scale(.98)}
+  #gateErr{color:#ff4d6d;margin:8px 0 0;font-size:12px;min-height:16px}
+  #gateVer{color:#4d6480;margin:4px 0 0;font-size:11px}
+
+  #bg{position:fixed;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
+  #bg span{
+    font-size:clamp(36px,12vw,150px);font-weight:900;line-height:.92;text-align:center;
+    text-transform:uppercase;letter-spacing:.02em;transform:rotate(-12deg);
+    color:rgba(255,255,255,.16);text-shadow:0 0 90px rgba(255,255,255,.14);
+  }
+  #wrap{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:16px;align-items:center}
+  #hud{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px;
+       font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8ea6c9}
+  #hud b{color:#fff;font-weight:700;font-size:15px;letter-spacing:0}
+  #hudPlayer{color:#46e6a0;font-weight:700;font-size:13px;letter-spacing:0;text-transform:none;
+             overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%}
+  #stage{position:relative;line-height:0}
+  canvas{display:block;border-radius:18px;touch-action:none;
+    box-shadow:0 0 0 1px rgba(120,180,255,.16),0 24px 70px -24px rgba(40,140,255,.75)}
+  #overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    padding:20px;text-align:center;border-radius:18px;
+    background:rgba(6,10,20,.84);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  #overlay.show{opacity:1;pointer-events:auto}
+  #ov-title{margin:0;font-size:clamp(20px,5.6vw,28px);
+    background:linear-gradient(90deg,#46e6a0,#3aa8ff);-webkit-background-clip:text;
+    background-clip:text;color:transparent}
+  #ov-text{margin:0;font-size:14px;line-height:1.55;color:#a9bfdd;max-height:44vh;overflow:auto;width:100%}
+  #ov-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;margin-top:4px}
+  .btn{
+    appearance:none;border:1px solid rgba(120,180,255,.35);
+    background:rgba(70,140,255,.14);color:#e8f1ff;
+    padding:10px 18px;border-radius:12px;font:inherit;font-size:14px;font-weight:600;
+    cursor:pointer;transition:background .15s,border-color .15s,transform .08s;
+  }
+  .btn:hover{background:rgba(70,140,255,.26);border-color:rgba(120,180,255,.6)}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:linear-gradient(90deg,rgba(70,230,160,.3),rgba(58,168,255,.3));border-color:rgba(70,230,160,.5)}
+  .btn.ghost{background:transparent;color:#8ea6c9;border-color:rgba(120,180,255,.2)}
+  .btn.danger{background:rgba(255,77,109,.16);border-color:rgba(255,77,109,.45);color:#ffb3c1}
+  .btn.wide{width:100%;max-width:260px}
+  .name-input{
+    width:100%;max-width:260px;padding:12px 14px;border-radius:12px;
+    border:1px solid rgba(120,180,255,.35);background:rgba(10,16,30,.85);
+    color:#fff;font:inherit;font-size:16px;text-align:center;outline:none;
+  }
+  .name-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
+  .name-input.error{border-color:rgba(255,77,109,.9);animation:shake .3s}
+  .stats{width:100%;border-collapse:collapse;font-size:13px}
+  .stats th,.stats td{padding:7px 6px;text-align:left;border-bottom:1px solid rgba(120,180,255,.1)}
+  .stats th{color:#8ea6c9;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+            position:sticky;top:0;background:rgba(6,10,20,.95)}
+  .stats td{color:#e8f1ff}
+  .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
+  .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .secret-msg{
+    font-size:clamp(22px,6vw,32px);
+    font-weight:900;
+    color:#fff;
+    text-shadow:0 0 24px rgba(70,230,160,.6),0 0 50px rgba(58,168,255,.4);
+    letter-spacing:.02em;
+    padding:20px 0;
+  }
+  .alley{width:100%;display:flex;flex-direction:column;gap:10px;text-align:left;padding:4px 2px}
+  .alley-item{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;border-radius:14px;
+    border:1px solid rgba(120,180,255,.2);
+    background:rgba(10,16,30,.6);
+  }
+  .alley-num{
+    width:30px;height:30px;flex:0 0 30px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;
+    background:rgba(70,140,255,.16);color:#8ea6c9;
+  }
+  .alley-name{font-size:15px;font-weight:700;color:#fff;line-height:1.25}
+  .alley-sub{font-size:12px;color:#8ea6c9;margin-top:2px}
+  .alley-item.dev{border-color:rgba(70,230,160,.45);background:rgba(70,230,160,.08)}
+  .alley-item.dev .alley-num{background:linear-gradient(135deg,#46e6a0,#3aa8ff);color:#06281f}
+  .alley-item.empty{opacity:.85}
+  .menu-hint{color:#8ea6c9;font-size:12px;margin:0 0 6px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div id="gateCard">
+    <h2>Вход по коду</h2>
+    <p class="sub">Введите код доступа</p>
+    <input id="gateInput" class="gate-input" type="text" inputmode="numeric"
+           autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
+    <button id="gateBtn" type="button">Войти</button>
+    <p id="gateErr"></p>
+    <p id="gateVer">версия 8</p>
+  </div>
+</div>
+
+<div id="bg"><span>Вова<br>разработчик<br>этой игры</span></div>
+
+<div id="wrap">
+  <div id="hud">
+    <span id="hudPlayer">—</span>
+    <span>Счёт <b id="score">0</b></span>
+    <span>Рекорд <b id="best">0</b></span>
+  </div>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="overlay">
+      <h1 id="ov-title">Змейка</h1>
+      <p id="ov-text"></p>
+      <div id="ov-actions"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ ЧАСТЬ 1: КОД ДОСТУПА ============ */
+(function() {
+  var CORRECT = '12345789';
+  var gate = document.getElementById('gate');
+  var input = document.getElementById('gateInput');
+  var btn = document.getElementById('gateBtn');
+  var err = document.getElementById('gateErr');
+
+  function check() {
+    if ((input.value || '').trim() === CORRECT) {
+      gate.style.display = 'none';
+      input.value = '';
+      err.textContent = '';
+      if (typeof window.__gameReady === 'function') {
+        window.__gameReady();
+      } else {
+        err.style.color = '#46e6a0';
+        err.textContent = 'Загрузка...';
+      }
+    } else {
+      input.value = '';
+      input.classList.add('error');
+      err.style.color = '#ff4d6d';
+      err.textContent = 'Неверный код';
+      setTimeout(function() {
+        input.classList.remove('error');
+        err.textContent = '';
+      }, 900);
+    }
+  }
+
+  btn.addEventListener('click', check);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); check(); }
+  });
+
+  window.__showGate = function() {
+    input.value = '';
+    err.textContent = '';
+    gate.style.display = 'flex';
+    setTimeout(function(){ input.focus(); }, 50);
+  };
+})();
+
+/* ============ ЧАСТЬ 2: ИГРА ============ */
+(function() {
+  'use strict';
+
+  var GRID = 20;
+  var canvas  = document.getElementById('c');
+  var ctx     = canvas.getContext('2d');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ov-title');
+  var ovText  = document.getElementById('ov-text');
+  var ovActions = document.getElementById('ov-actions');
+  var scoreEl = document.getElementById('score');
+  var bestEl  = document.getElementById('best');
+  var hudPlayer = document.getElementById('hudPlayer');
+
+  var LS_PLAYERS = 'snake.players.v2';
+  var LS_LAST    = 'snake.lastPlayer.v2';
+
+  var players = {};
+  var currentPlayer = '';
+  var state = 'name';
+  var returnFromStats = null;
+  var returnFromAlley = null;
+  var currentScreen = null;
+
+  var px = 400, cell = 20;
+  var snake, dir, queue, food, score, acc, stepMs, lastTime = 0;
+  var particles = [];
+  var loopStarted = false;
+
+  try { players = JSON.parse(localStorage.getItem(LS_PLAYERS) || '{}') || {}; } catch (e) { players = {}; }
+
+  function savePlayers() { try { localStorage.setItem(LS_PLAYERS, JSON.stringify(players)); } catch (e) {} }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fmtDate(ts) {
+    var d = new Date(ts), n = new Date();
+    return d.toDateString() === n.toDateString()
+      ? d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})
+      : d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+  }
+
+  var actx = null;
+  function beep(freq, dur, type, vol) {
+    type = type || 'sine'; vol = vol || 0.05;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g).connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function showScreen(title, textHTML, actionsHTML) {
+    ovTitle.textContent = title;
+    ovText.innerHTML = textHTML;
+    ovActions.innerHTML = actionsHTML;
+    overlay.classList.add('show');
+  }
+  function hideOverlay() { overlay.classList.remove('show'); }
+
+  function updateHud() {
+    hudPlayer.textContent = currentPlayer || '—';
+    var p = players[currentPlayer];
+    bestEl.textContent = p ? p.best : 0;
+    scoreEl.textContent = score || 0;
+  }
+
+  function logout() {
+    var ok = confirm('Выйти из аккаунта?\n\nВСЯ статистика игроков на этом устройстве будет удалена безвозвратно.\nПосле выхода потребуется снова ввести код доступа.');
+    if (!ok) return;
+
+    players = {};
+    currentPlayer = '';
+    try {
+      localStorage.removeItem(LS_PLAYERS);
+      localStorage.removeItem(LS_LAST);
+    } catch (e) {}
+
+    resetGame();
+    score = 0;
+    updateHud();
+
+    hideOverlay();
+    if (typeof window.__showGate === 'function') window.__showGate();
+    state = 'name';
+  }
+
+  /* ---------- ЭКРАН ВВОДА ИМЕНИ (только поле + кнопка «Меню») ---------- */
+  function screenName() {
+    state = 'name';
+    currentScreen = screenName;
+    var last = localStorage.getItem(LS_LAST) || '';
+    showScreen(
+      'Кто играет?',
+      '<p class="menu-hint">Введи имя — оно сохранится на этом устройстве</p>',
+      '<form id="nameForm" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%">' +
+        '<input id="nameInput" class="name-input" maxlength="16" placeholder="Имя" ' +
+          'autocomplete="off" autocapitalize="words" value="' + esc(last) + '">' +
+        '<button type="submit" class="btn ghost wide" id="btnMenuName">Меню</button>' +
+      '</form>'
+    );
+    var form = document.getElementById('nameForm');
+    var input = document.getElementById('nameInput');
+
+    form.addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      var name = input.value.trim().replace(/\s+/g, ' ').slice(0, 16);
+      if (!name) {
+        // если имени нет — берём последнее сохранённое, если и его нет — подсветим
+        name = localStorage.getItem(LS_LAST) || '';
+        if (!name) { shake(input); return; }
+      }
+      setPlayer(name);
+    });
+
+    if (!('ontouchstart' in window)) input.focus();
+  }
+
+  function shake(el) {
+    el.focus();
+    el.classList.add('error');
+    setTimeout(function(){ el.classList.remove('error'); }, 600);
+  }
+
+  function setPlayer(name) {
+    currentPlayer = name;
+    try { localStorage.setItem(LS_LAST, name); } catch (e) {}
+    if (!players[name]) {
+      players[name] = { games: 0, best: 0, total: 0, last: 0 };
+      savePlayers();
+    }
+    resetGame();
+    updateHud();
+    screenReady();
+  }
+
+  /* ---------- ГЛАВНОЕ МЕНЮ (все кнопки) ---------- */
+  function screenReady() {
+    state = 'ready';
+    currentScreen = screenReady;
+    showScreen(
+      'Змейка — меню',
+      'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>' +
+      'Стрелки / WASD / свайп — движение<br>Пробел — пауза',
+      '<button class="btn primary" id="btnPlay">Играть</button>' +
+      '<button class="btn" id="btnStatsReady">Статистика</button>' +
+      '<button class="btn" id="btnAlleyReady">Аллея игроков</button>' +
+      '<button class="btn ghost" id="btnChangeReady">Сменить игрока</button>' +
+      '<button class="btn ghost" id="btnSecretReady">Секрет</button>' +
+      '<button class="btn danger" id="btnLogoutReady">Выйти из аккаунта</button>'
+    );
+    document.getElementById('btnPlay').addEventListener('click', start);
+    document.getElementById('btnStatsReady').addEventListener('click', showStats);
+    document.getElementById('btnAlleyReady').addEventListener('click', showAlley);
+    document.getElementById('btnChangeReady').addEventListener('click', screenName);
+    document.getElementById('btnSecretReady').addEventListener('click', screenSecret);
+    document.getElementById('btnLogoutReady').addEventListener('click', logout);
+  }
+
+  /* ---------- АЛЛЕЯ ИГРОКОВ ---------- */
+  function showAlley() {
+    var prevState = state;
+    var prevScreen = currentScreen;
+    state = 'alley';
+    currentScreen = screenAlley;
+    returnFromAlley = function() {
+      state = prevState;
+      currentScreen = prevScreen;
+      if (prevScreen) prevScreen();
+    };
+    screenAlley();
+  }
+
+  function screenAlley() {
+    var html =
+      '<div class="alley">' +
+        '<div class="alley-item dev">' +
+          '<div class="alley-num">1</div>' +
+          '<div>' +
+            '<div class="alley-name">Владимир</div>' +
+            '<div class="alley-sub">(разработчик)</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="alley-item empty">' +
+          '<div class="alley-num">2</div>' +
+          '<div>' +
+            '<div class="alley-name">Не занято</div>' +
+            '<div class="alley-sub">(чтобы занять обратитесь к разработчику)</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    showScreen(
+      'Аллея игроков',
+      html,
+      '<button class="btn primary" id="btnAlleyBack">Назад</button>'
+    );
+    document.getElementById('btnAlleyBack').addEventListener('click', function() {
+      if (returnFromAlley) returnFromAlley();
+    });
+  }
+
+  function screenSecret() {
+    var prevState = state;
+    var prevScreen = currentScreen;
+    state = 'secret';
+    currentScreen = screenSecret;
+    showScreen(
+      'Секрет',
+      '<div class="secret-msg">Это секрет выйди</div>',
+      '<button class="btn primary" id="btnSecretBack">Выйти</button>'
+    );
+    document.getElementById('btnSecretBack').addEventListener('click', function() {
+      state = prevState;
+      currentScreen = prevScreen;
+      if (prevScreen) prevScreen();
+    });
+  }
+
+  function resetGame() {
+    snake = [{x:9,y:10},{x:8,y:10},{x:7,y:10}];
+    dir = {x:1, y:0};
+    queue = [];
+    particles = [];
+    score = 0;
+    stepMs = 150;
+    acc = 0;
+    spawnFood();
+  }
+
+  function start() {
+    if (state === 'over') resetGame();
+    state = 'play';
+    hideOverlay();
+    acc = 0;
+    updateHud();
+  }
+
+  function pause() {
+    if (state !== 'play') return;
+    state = 'pause';
+    showScreen(
+      'Пауза',
+      'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>Счёт: <b style="color:#fff">' + score + '</b>',
+      '<button class="btn primary" id="btnResume">Продолжить</button>' +
+      '<button class="btn ghost" id="btnQuit">В меню</button>'
+    );
+    document.getElementById('btnResume').addEventListener('click', resume);
+    document.getElementById('btnQuit').addEventListener('click', function() {
+      if (confirm('Выйти в меню? Текущая игра не сохранится.')) screenReady();
+    });
+  }
+
+  function resume() {
+    if (state !== 'pause') return;
+    state = 'play';
+    hideOverlay();
+    acc = 0;
+  }
+
+  function spawnFood() {
+    var free = [];
+    for (var y = 0; y < GRID; y++)
+      for (var x = 0; x < GRID; x++)
+        if (!snake.some(function(s){ return s.x === x && s.y === y; })) free.push({x:x, y:y});
+    food = free.length ? free[(Math.random() * free.length) | 0] : {x:0, y:0};
+  }
+
+  function setDir(d) {
+    var last = queue.length ? queue[queue.length - 1] : dir;
+    if (last.x === -d.x && last.y === -d.y) return;
+    if (last.x === d.x && last.y === d.y) return;
+    if (queue.length < 2) queue.push(d);
+  }
+
+  function step() {
+    if (state !== 'play') return;
+    if (queue.length) dir = queue.shift();
+    var head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    if (head.x < 0 || head.y < 0 || head.x >= GRID || head.y >= GRID) return die();
+
+    var grow = (head.x === food.x && head.y === food.y);
+    var body = grow ? snake : snake.slice(0, -1);
+    if (body.some(function(s){ return s.x === head.x && s.y === head.y; })) return die();
+
+    snake.unshift(head);
+    if (grow) {
+      score++;
+      scoreEl.textContent = score;
+      stepMs = Math.max(62, 150 - score * 4);
+      burst((food.x + 0.5) * cell, (food.y + 0.5) * cell, '#ff4d6d', 16);
+      spawnFood();
+      beep(680, 0.09, 'triangle', 0.05);
+    } else {
+      snake.pop();
+    }
+  }
+
+  function recordGame() {
+    if (!currentPlayer) return;
+    var p = players[currentPlayer] || (players[currentPlayer] = {games:0, best:0, total:0, last:0});
+    p.games++;
+    p.total += score;
+    if (score > p.best) p.best = score;
+    p.last = Date.now();
+    savePlayers();
+    updateHud();
+  }
+
+  function die() {
+    if (state !== 'play') return;
+    state = 'over';
+    queue = [];
+    var h = snake[0];
+    burst((h.x + 0.5) * cell, (h.y + 0.5) * cell, '#ff4d6d', 26);
+    beep(150, 0.45, 'sawtooth', 0.07);
+
+    var prevBest = players[currentPlayer] ? players[currentPlayer].best : 0;
+    recordGame();
+    var p = players[currentPlayer];
+    var isRecord = score > prevBest && score > 0;
+
+    currentScreen = screenOver;
+    showScreen(
+      'Игра окончена',
+      'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>' +
+      'Счёт: <b style="color:#fff">' + score + '</b> &nbsp; Рекорд: <b style="color:#46e6a0">' + p.best + '</b>' +
+      (isRecord ? '<br><span style="color:#ffd166;font-weight:700">🏆 Новый рекорд!</span>' : ''),
+      '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
+      '<button class="btn" id="btnStatsOver">Статистика</button>' +
+      '<button class="btn" id="btnAlleyOver">Аллея игроков</button>' +
+      '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
+      '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
+      '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
+    );
+    document.getElementById('btnAgain').addEventListener('click', start);
+    document.getElementById('btnStatsOver').addEventListener('click', showStats);
+    document.getElementById('btnAlleyOver').addEventListener('click', showAlley);
+    document.getElementById('btnChangeOver').addEventListener('click', screenName);
+    document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
+    document.getElementById('btnLogoutOver').addEventListener('click', logout);
+  }
+
+  function screenOver() {
+    var p = players[currentPlayer] || {best: 0};
+    currentScreen = screenOver;
+    state = 'over';
+    showScreen(
+      'Игра окончена',
+      'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b><br>' +
+      'Счёт: <b style="color:#fff">' + score + '</b> &nbsp; Рекорд: <b style="color:#46e6a0">' + p.best + '</b>',
+      '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
+      '<button class="btn" id="btnStatsOver">Статистика</button>' +
+      '<button class="btn" id="btnAlleyOver">Аллея игроков</button>' +
+      '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
+      '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
+      '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
+    );
+    document.getElementById('btnAgain').addEventListener('click', start);
+    document.getElementById('btnStatsOver').addEventListener('click', showStats);
+    document.getElementById('btnAlleyOver').addEventListener('click', showAlley);
+    document.getElementById('btnChangeOver').addEventListener('click', screenName);
+    document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
+    document.getElementById('btnLogoutOver').addEventListener('click', logout);
+  }
+
+  function showStats() {
+    var prevState = state;
+    var prevScreen = currentScreen;
+    state = 'stats';
+    returnFromStats = function() {
+      state = prevState;
+      currentScreen = prevScreen;
+      if (prevScreen) prevScreen();
+    };
+    renderStats();
+  }
+
+  function renderStats() {
+    var list = Object.keys(players).map(function(k){ return [k, players[k]]; })
+      .sort(function(a, b){
+        return b[1].best - a[1].best || b[1].games - a[1].games || (b[1].last || 0) - (a[1].last || 0);
+      });
+
+    var body;
+    if (!list.length) {
+      body = '<div style="color:#8ea6c9;padding:16px">Пока никто не играл</div>';
+    } else {
+      var rows = list.map(function(item, i){
+        var name = item[0], p = item[1];
+        return '<tr>' +
+          '<td class="num" style="color:#8ea6c9">' + (i + 1) + '</td>' +
+          '<td>' + esc(name) + (name === currentPlayer ? ' <span style="color:#8ea6c9;font-size:10px">(ты)</span>' : '') + '</td>' +
+          '<td class="num">' + p.best + '</td>' +
+          '<td class="num">' + p.games + '</td>' +
+          '<td class="num" style="color:#8ea6c9;font-size:11px">' + (p.last ? fmtDate(p.last) : '—') + '</td>' +
+        '</tr>';
+      }).join('');
+      body = '<table class="stats">' +
+        '<thead><tr>' +
+          '<th>#</th><th>Игрок</th>' +
+          '<th style="text-align:right">Рекорд</th>' +
+          '<th style="text-align:right">Игр</th>' +
+          '<th style="text-align:right">Последняя</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table>';
+    }
+
+    showScreen(
+      'Статистика',
+      body,
+      '<button class="btn primary" id="btnBack">Назад</button>' +
+      '<button class="btn danger" id="btnClear">Очистить</button>'
+    );
+
+    document.getElementById('btnBack').addEventListener('click', function() {
+      if (returnFromStats) returnFromStats();
+    });
+    document.getElementById('btnClear').addEventListener('click', function() {
+      if (confirm('Удалить всю статистику игроков на этом устройстве?')) {
+        players = {};
+        savePlayers();
+        updateHud();
+        renderStats();
+      }
+    });
+  }
+
+  function burst(x, y, color, count) {
+    count = count || 16;
+    for (var i = 0; i < count; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = (0.03 + Math.random() * 0.13) * (cell / 20);
+      particles.push({
+        x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        r: cell * (0.05 + Math.random() * 0.07),
+        life: 380 + Math.random() * 320, max: 700, color: color
+      });
+    }
+  }
+  function updateParticles(dt) {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.985; p.vy *= 0.985;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function draw() {
+    if (!snake) return;
+    ctx.fillStyle = '#0c1224';
+    ctx.fillRect(0, 0, px, px);
+
+    ctx.strokeStyle = 'rgba(130,180,255,0.055)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var i = 1; i < GRID; i++) {
+      var pp = Math.round(i * cell) + 0.5;
+      ctx.moveTo(pp, 0); ctx.lineTo(pp, px);
+      ctx.moveTo(0, pp); ctx.lineTo(px, pp);
+    }
+    ctx.stroke();
+
+    drawWatermark();
+    drawFood();
+    drawSnake();
+    drawParticles();
+  }
+
+  function drawWatermark() {
+    var size = Math.max(14, px * 0.075);
+    ctx.save();
+    ctx.translate(px / 2, px / 2);
+    ctx.rotate(-0.22);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    ctx.shadowColor = 'rgba(255,255,255,0.22)';
+    ctx.shadowBlur = size * 0.55;
+    ctx.font = '900 ' + size + 'px ui-sans-serif,system-ui,Arial,sans-serif';
+    ctx.fillText('ВОВА', 0, -size * 0.62);
+    ctx.font = '700 ' + (size * 0.46) + 'px ui-sans-serif,system-ui,Arial,sans-serif';
+    ctx.fillText('РАЗРАБОТЧИК ЭТОЙ ИГРЫ', 0, size * 0.62);
+    ctx.restore();
+  }
+
+  function drawFood() {
+    var t = performance.now() / 1000;
+    var k = 1 + Math.sin(t * 5) * 0.09;
+    var cx = (food.x + 0.5) * cell, cy = (food.y + 0.5) * cell;
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,77,109,.95)';
+    ctx.shadowBlur = cell * 0.9;
+    var g = ctx.createRadialGradient(cx - cell * 0.1, cy - cell * 0.1, cell * 0.04, cx, cy, cell * 0.42);
+    g.addColorStop(0, '#ff9ab0');
+    g.addColorStop(1, '#ff3d63');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.33 * k, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSnake() {
+    var n = snake.length;
+    for (var i = n - 1; i >= 0; i--) {
+      var s = snake[i];
+      var p = n === 1 ? 0 : i / (n - 1);
+      var hue = 152 + p * 48;
+      var light = 62 - p * 16;
+      var pad = cell * 0.09;
+      ctx.fillStyle = 'hsl(' + hue + ',85%,' + light + '%)';
+      if (i === 0) { ctx.shadowColor = 'rgba(70,230,170,.9)'; ctx.shadowBlur = cell * 0.9; }
+      else ctx.shadowBlur = 0;
+      rrect(s.x * cell + pad, s.y * cell + pad, cell - pad * 2, cell - pad * 2, cell * 0.3);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    var h = snake[0];
+    var hx = (h.x + 0.5) * cell, hy = (h.y + 0.5) * cell;
+    var fx = dir.x * cell * 0.16, fy = dir.y * cell * 0.16;
+    var sx = -dir.y * cell * 0.18, sy = dir.x * cell * 0.18;
+    ctx.fillStyle = '#06281f';
+    for (var sgn = 1; sgn >= -1; sgn -= 2) {
+      ctx.beginPath();
+      ctx.arc(hx + fx + sx * sgn, hy + fy + sy * sgn, cell * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function resize() {
+    var w = Math.min(window.innerWidth - 32, 560);
+    var h = window.innerHeight - 130;
+    px = Math.max(200, Math.floor(Math.min(w, h)));
+    cell = px / GRID;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(px * dpr);
+    canvas.height = Math.round(px * dpr);
+    canvas.style.width = px + 'px';
+    canvas.style.height = px + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function loop(t) {
+    if (!lastTime) lastTime = t;
+    var dt = Math.min(100, t - lastTime);
+    lastTime = t;
+
+    if (state === 'play') {
+      acc += dt;
+      var guard = 0;
+      while (state === 'play' && acc >= stepMs && guard++ < 5) {
+        acc -= stepMs;
+        step();
+      }
+    }
+    updateParticles(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  var KEYS = {
+    ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+    w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+    'ц':{x:0,y:-1}, 'ы':{x:0,y:1}, 'ф':{x:-1,y:0}, 'в':{x:1,y:0}
+  };
+
+  window.addEventListener('keydown', function(e) {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    var k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (KEYS[k] || k === ' ' || k === 'Spacebar' || k === 'Enter' || k === 'Escape') e.preventDefault();
+
+    if (k === 'Escape') {
+      if (state === 'play') pause();
+      else if (state === 'pause') resume();
+      else if (state === 'secret') {
+        var back = document.getElementById('btnSecretBack');
+        if (back) back.click();
+      }
+      return;
+    }
+    if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
+      if (state === 'ready' || state === 'over') start();
+      else if (state === 'play') pause();
+      else if (state === 'pause') resume();
+      return;
+    }
+    var d = KEYS[k];
+    if (!d) return;
+    if (state === 'ready') start();
+    if (state === 'play') setDir(d);
+  });
+
+  var touchStart = null;
+  canvas.addEventListener('touchstart', function(e) {
+    var t = e.changedTouches[0];
+    touchStart = {x: t.clientX, y: t.clientY};
+  }, {passive: true});
+  canvas.addEventListener('touchmove', function(e) { e.preventDefault(); }, {passive: false});
+  canvas.addEventListener('touchend', function(e) {
+    if (!touchStart) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - touchStart.x;
+    var dy = t.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.sqrt(dx*dx + dy*dy) < 24) return;
+    if (state !== 'play') return;
+    if (Math.abs(dx) > Math.abs(dy)) setDir({x: Math.sign(dx), y: 0});
+    else setDir({x: 0, y: Math.sign(dy)});
+  }, {passive: true});
+
+  window.addEventListener('resize', resize);
+
+  resetGame();
+  updateHud();
+  resize();
+  screenName();
+
+  window.__gameReady = function() {
+    if (!loopStarted) {
+      loopStarted = true;
+      requestAnimationFrame(loop);
+    }
+    if (!currentPlayer) {
+      screenName();
+    } else if (state === 'name' && currentScreen === screenName) {
+      screenName();
+    }
+  };
+})();
+</script>
+</body>
+</HTML>
