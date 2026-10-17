@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Змейка — Вова (версия 9)</title>
+<title>Змейка — Вова (версия 12)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -103,14 +103,6 @@
   .stats td{color:#e8f1ff}
   .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
   .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
-  .secret-msg{
-    font-size:clamp(22px,6vw,32px);
-    font-weight:900;
-    color:#fff;
-    text-shadow:0 0 24px rgba(70,230,160,.6),0 0 50px rgba(58,168,255,.4);
-    letter-spacing:.02em;
-    padding:20px 0;
-  }
   .alley{width:100%;display:flex;flex-direction:column;gap:10px;text-align:left;padding:4px 2px}
   .alley-item{
     display:flex;align-items:center;gap:12px;
@@ -142,7 +134,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 9</p>
+    <p id="gateVer">версия 12</p>
   </div>
 </div>
 
@@ -213,9 +205,8 @@
 (function() {
   'use strict';
 
-  // !!! ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ИЗ FIREBASE (ОБЯЗАТЕЛЬНО С /scores.json В КОНЦЕ) !!!
+  // ВАША ССЫЛКА НА FIREBASE УЖЕ ВСТАВЛЕНА СЮДА
   var FIREBASE_URL = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores.json'; 
-  // (я уже вставил примерный адрес с вашего скриншота, но лучше проверьте его в Firebase)
 
   var GRID = 20;
   var canvas = document.getElementById('c');
@@ -374,18 +365,12 @@
       'Стрелки / WASD / свайп — движение<br>Пробел — пауза',
       '<button class="btn primary" id="btnPlay">Играть</button>' +
       '<button class="btn" id="btnGlobalStats">🌍 Общий рейтинг</button>' +
-      '<button class="btn" id="btnStatsReady">Статистика (тут)</button>' +
       '<button class="btn" id="btnAlleyReady">Аллея игроков</button>' +
-      '<button class="btn ghost" id="btnChangeReady">Сменить игрока</button>' +
-      '<button class="btn ghost" id="btnSecretReady">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutReady">Выйти из аккаунта</button>'
     );
     document.getElementById('btnPlay').addEventListener('click', start);
     document.getElementById('btnGlobalStats').addEventListener('click', showGlobalStats);
-    document.getElementById('btnStatsReady').addEventListener('click', showStats);
     document.getElementById('btnAlleyReady').addEventListener('click', showAlley);
-    document.getElementById('btnChangeReady').addEventListener('click', screenName);
-    document.getElementById('btnSecretReady').addEventListener('click', screenSecret);
     document.getElementById('btnLogoutReady').addEventListener('click', logout);
   }
 
@@ -413,14 +398,19 @@
     fetch(FIREBASE_URL)
       .then(res => res.json())
       .then(data => {
-        var list = [];
+        var bestScores = {};
         if (data) {
           for (var key in data) {
-            if (data[key] && data[key].name) {
-              list.push(data[key]);
+            var entry = data[key];
+            if (entry && entry.name) {
+              if (!bestScores[entry.name] || entry.score > bestScores[entry.name].score) {
+                bestScores[entry.name] = entry;
+              }
             }
           }
         }
+        
+        var list = Object.keys(bestScores).map(function(n){ return bestScores[n]; });
         list.sort(function(a, b) { return b.score - a.score; });
         
         var body = '';
@@ -437,7 +427,7 @@
           }).join('');
           
           body = '<table class="stats">' +
-            '<thead><tr><th>#</th><th>Игрок</th><th style="text-align:right">Счёт</th><th style="text-align:right">Когда</th></tr></thead>' +
+            '<thead><tr><th>#</th><th>Игрок</th><th style="text-align:right">Рекорд</th><th style="text-align:right">Когда</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
           '</table>';
         }
@@ -490,23 +480,6 @@
     );
     document.getElementById('btnAlleyBack').addEventListener('click', function() {
       if (returnFromAlley) returnFromAlley();
-    });
-  }
-
-  function screenSecret() {
-    var prevState = state;
-    var prevScreen = currentScreen;
-    state = 'secret';
-    currentScreen = screenSecret;
-    showScreen(
-      'Секрет',
-      '<div class="secret-msg">Это секрет выйди</div>',
-      '<button class="btn primary" id="btnSecretBack">Выйти</button>'
-    );
-    document.getElementById('btnSecretBack').addEventListener('click', function() {
-      state = prevState;
-      currentScreen = prevScreen;
-      if (prevScreen) prevScreen();
     });
   }
 
@@ -637,16 +610,10 @@
       (isRecord ? '<br><span style="color:#ffd166;font-weight:700">🏆 Новый рекорд!</span>' : ''),
       '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
       '<button class="btn" id="btnGlobalStatsOver">🌍 Общий рейтинг</button>' +
-      '<button class="btn" id="btnStatsOver">Статистика</button>' +
-      '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
-      '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
     );
     document.getElementById('btnAgain').addEventListener('click', start);
     document.getElementById('btnGlobalStatsOver').addEventListener('click', showGlobalStats);
-    document.getElementById('btnStatsOver').addEventListener('click', showStats);
-    document.getElementById('btnChangeOver').addEventListener('click', screenName);
-    document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
     document.getElementById('btnLogoutOver').addEventListener('click', logout);
   }
 
@@ -660,80 +627,11 @@
       'Счёт: <b style="color:#fff">' + score + '</b> &nbsp; Рекорд: <b style="color:#46e6a0">' + p.best + '</b>',
       '<button class="btn primary" id="btnAgain">Ещё раз</button>' +
       '<button class="btn" id="btnGlobalStatsOver">🌍 Общий рейтинг</button>' +
-      '<button class="btn" id="btnStatsOver">Статистика</button>' +
-      '<button class="btn ghost" id="btnChangeOver">Сменить игрока</button>' +
-      '<button class="btn ghost" id="btnSecretOver">Секрет</button>' +
       '<button class="btn danger" id="btnLogoutOver">Выйти из аккаунта</button>'
     );
     document.getElementById('btnAgain').addEventListener('click', start);
     document.getElementById('btnGlobalStatsOver').addEventListener('click', showGlobalStats);
-    document.getElementById('btnStatsOver').addEventListener('click', showStats);
-    document.getElementById('btnChangeOver').addEventListener('click', screenName);
-    document.getElementById('btnSecretOver').addEventListener('click', screenSecret);
     document.getElementById('btnLogoutOver').addEventListener('click', logout);
-  }
-
-  function showStats() {
-    var prevState = state;
-    var prevScreen = currentScreen;
-    state = 'stats';
-    returnFromStats = function() {
-      state = prevState;
-      currentScreen = prevScreen;
-      if (prevScreen) prevScreen();
-    };
-    renderStats();
-  }
-
-  function renderStats() {
-    var list = Object.keys(players).map(function(k){ return [k, players[k]]; })
-      .sort(function(a, b){
-        return b[1].best - a[1].best || b[1].games - a[1].games || (b[1].last || 0) - (a[1].last || 0);
-      });
-
-    var body;
-    if (!list.length) {
-      body = '<div style="color:#8ea6c9;padding:16px">Пока никто не играл (на этом устройстве)</div>';
-    } else {
-      var rows = list.map(function(item, i){
-        var name = item[0], p = item[1];
-        return '<tr>' +
-          '<td class="num" style="color:#8ea6c9">' + (i + 1) + '</td>' +
-          '<td>' + esc(name) + (name === currentPlayer ? ' <span style="color:#8ea6c9;font-size:10px">(ты)</span>' : '') + '</td>' +
-          '<td class="num">' + p.best + '</td>' +
-          '<td class="num">' + p.games + '</td>' +
-          '<td class="num" style="color:#8ea6c9;font-size:11px">' + (p.last ? fmtDate(p.last) : '—') + '</td>' +
-        '</tr>';
-      }).join('');
-      body = '<table class="stats">' +
-        '<thead><tr>' +
-          '<th>#</th><th>Игрок</th>' +
-          '<th style="text-align:right">Рекорд</th>' +
-          '<th style="text-align:right">Игр</th>' +
-          '<th style="text-align:right">Последняя</th>' +
-        '</tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-      '</table>';
-    }
-
-    showScreen(
-      'Статистика (это устройство)',
-      body,
-      '<button class="btn primary" id="btnBack">Назад</button>' +
-      '<button class="btn danger" id="btnClear">Очистить</button>'
-    );
-
-    document.getElementById('btnBack').addEventListener('click', function() {
-      if (returnFromStats) returnFromStats();
-    });
-    document.getElementById('btnClear').addEventListener('click', function() {
-      if (confirm('Удалить всю статистику игроков на этом устройстве?')) {
-        players = {};
-        savePlayers();
-        updateHud();
-        renderStats();
-      }
-    });
   }
 
   function burst(x, y, color, count) {
@@ -900,10 +798,6 @@
     if (k === 'Escape') {
       if (state === 'play') pause();
       else if (state === 'pause') resume();
-      else if (state === 'secret') {
-        var back = document.getElementById('btnSecretBack');
-        if (back) back.click();
-      }
       return;
     }
     if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
