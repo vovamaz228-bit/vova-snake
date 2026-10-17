@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 23)</title>
+<title>Онлайн Flappy Bird — Вова (версия 24)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -103,7 +103,6 @@
   .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
   .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
 </style>
-<!-- Подключаем официальный SDK Firebase для WebSockets (мгновенная передача данных) -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
@@ -117,7 +116,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 23</p>
+    <p id="gateVer">версия 24</p>
   </div>
 </div>
 
@@ -183,7 +182,6 @@
 (function() {
   'use strict';
 
-  // Инициализация Firebase
   var firebaseConfig = { databaseURL: "https://vova-snake-420c6-default-rtdb.firebaseio.com" };
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   var db = firebase.database();
@@ -227,11 +225,11 @@
   var onlineData = null;
   var onlineBirdY = 150;
   var onlineBirdVy = 0;
-  var onlineStartTime = 0;
   var onlinePipes = [];
   var onlineScore = 0;
   var onlineState = 'waiting'; 
   var onlinePassedPipes = {};
+  var onlineTimeElapsed = 0; // Вместо Date.now() используем локальный таймер
   var syncInterval = null;
   var roomRef = null;
 
@@ -399,7 +397,7 @@
       });
   }
 
-  /* ================= ОНЛАЙН ЛОББИ (WEBSOCKETS) ================= */
+  /* ================= ОНЛАЙН ЛОББИ ================= */
   function showOnlineLobby() {
     state = 'lobby';
     currentScreen = showOnlineLobby;
@@ -430,53 +428,46 @@
 
     roomRef = db.ref('rooms/' + onlineRoom);
     
-    // Если мы первые, сбрасываем статус в 'waiting'
     roomRef.child('status').set('waiting');
     
-    // Добавляем себя в комнату
     roomRef.child('players/' + deviceId).set({
         name: currentPlayer, y: px / 2, score: 0, alive: true
     });
     
-    // Удаляем себя при выходе/закрытии вкладки
     roomRef.child('players/' + deviceId).onDisconnect().remove();
 
-    // Слушаем изменения в комнате мгновенно (WebSocket)
     roomRef.on('value', function(snapshot) {
         var data = snapshot.val();
         if (!data) return;
         onlineData = data;
         
-        // Если хост запустил игру
         if (data.status === 'playing' && onlineState === 'waiting') {
             onlineState = 'playing';
-            onlineStartTime = data.startTime;
             onlineBirdY = px / 2;
             onlineBirdVy = 0;
             onlineScore = 0;
             onlinePipes = [];
             onlinePassedPipes = {};
+            onlineTimeElapsed = 0; // Сбрасываем таймер при старте
             hideOverlay();
         } 
-        // Если игру сбросили, возвращаемся в лобби
-        else if (data.status === 'waiting' && onlineState === 'playing') {
+        else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over')) {
             onlineState = 'waiting';
             renderLobbyWaiting();
         }
 
-        // Обновляем экран лобби, если мы в нём
         if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
             renderLobbyWaiting();
         }
     });
-was     // Запускаем отправку наших координат (10 раз в секунду)
+
     if (syncInterval) clearInterval(syncInterval);
     syncInterval = setInterval(function() {
         if (onlineState === 'playing' && onlineRoom) {
             db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({
                 y: onlineBirdY,
                 score: onlineScore,
-                alive: onlineState === 'playing'
+                alive: true
             });
         }
     }, 100);
@@ -507,10 +498,7 @@ was     // Запускаем отправку наших координат (10
 
     if (pCount >= 2) {
         document.getElementById('btnStartOnline').addEventListener('click', function() {
-          var startTime = Date.now();
-          db.ref('rooms/' + onlineRoom).update({
-            status: 'playing', startTime: startTime
-          });
+          db.ref('rooms/' + onlineRoom).update({ status: 'playing' });
         });
     }
 
@@ -530,9 +518,10 @@ was     // Запускаем отправку наших координат (10
 
   /* ================= ИГРА: ОНЛАЙН FLAPPY ================= */
   function updateOnlineFlappy(dt) {
-    if (onlineState !== 'playing' || !onlineData) return;
+    if (onlineState !== 'playing') return;
 
-    // Гравитация и полет
+    onlineTimeElapsed += dt; // Локальный таймер вместо Date.now()
+
     onlineBirdVy += 0.25 * (dt / 16);
     onlineBirdY += onlineBirdVy * (dt / 16);
 
@@ -542,19 +531,17 @@ was     // Запускаем отправку наших координат (10
        return dieOnlineFlappy();
     }
 
-    // Генерация труб на основе времени (одинаково для всех)
-    var timeElapsed = Date.now() - onlineStartTime;
     var pipeSpacing = 1500;
     var pipeSpeed = 0.15;
     
     onlinePipes = [];
-    var currentPipeIndex = Math.floor(timeElapsed / pipeSpacing);
+    var currentPipeIndex = Math.floor(onlineTimeElapsed / pipeSpacing);
     
     for (var i = currentPipeIndex - 1; i <= currentPipeIndex + 2; i++) {
         if (i < 0) continue;
         
         var spawnTime = i * pipeSpacing;
-        var pipeX = px - (timeElapsed - spawnTime) * pipeSpeed;
+        var pipeX = px - (onlineTimeElapsed - spawnTime) * pipeSpeed;
         
         if (pipeX > -px * 0.2 && pipeX < px + 10) {
             var seed = i * 12345;
@@ -588,15 +575,19 @@ was     // Запускаем отправку наших координат (10
     beep(150, 0.4, 'sawtooth', 0.07);
     
     if (onlineRoom) {
-        db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: false });
+        db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: false, score: onlineScore });
     }
 
     showScreen(
-      'Ты упал!',
-      'Твой счёт: <b>' + onlineScore + '</b><br>Ждем остальных...',
-      '<button class="btn primary" id="btnQuitOnline">Выйти в меню</button>'
+      'Вы разбились!',
+      'Ваш счёт: <b>' + onlineScore + '</b><br>Вы вернулись в комнату.',
+      '<button class="btn primary" id="btnReturnRoom">Вернуться в комнату</button>'
     );
-    document.getElementById('btnQuitOnline').addEventListener('click', leaveRoom);
+    document.getElementById('btnReturnRoom').addEventListener('click', function() {
+        onlineState = 'waiting';
+        if (onlineRoom) db.ref('rooms/' + onlineRoom + '/status').set('waiting');
+        if (onlineData) renderLobbyWaiting();
+    });
   }
 
   function drawOnlineFlappy() {
@@ -616,29 +607,29 @@ was     // Запускаем отправку наших координат (10
       ctx.strokeRect(p.x, px - botH, pWidth, botH);
     }
 
+    // Рисуем друга (Синий цвет)
     if (onlineData && onlineData.players) {
       for (var pid in onlineData.players) {
         if (pid === deviceId) continue;
         var op = onlineData.players[pid];
-        if (op.alive) {
-          // Рисуем друга
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(50 + 10, op.y + 10, 10, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-          
-          ctx.fillStyle = '#fff';
-          ctx.font = '12px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(op.name, 60, op.y - 10);
-        }
+        
+        ctx.fillStyle = op.alive ? '#3aa8ff' : 'rgba(58,168,255,0.3)'; 
+        ctx.strokeStyle = op.alive ? '#fff' : 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(50 + 10, op.y + 10, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Никнейм друга
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(op.name, 60, op.y - 15);
       }
     }
 
-    // Рисуем себя
+    // Рисуем себя (Желтый цвет)
     ctx.fillStyle = '#fadd44';
     ctx.strokeStyle = '#d4a31d';
     ctx.lineWidth = 2;
@@ -647,6 +638,13 @@ was     // Запускаем отправку наших координат (10
     ctx.fill();
     ctx.stroke();
 
+    // Свой никнейм
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentPlayer, 60, onlineBirdY - 15);
+
+    // Счёт
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 3;
