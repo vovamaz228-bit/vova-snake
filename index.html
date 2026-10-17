@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Змейка — Вова (версия 12)</title>
+<title>Змейка — Вова (версия 13)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -134,7 +134,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 12</p>
+    <p id="gateVer">версия 13</p>
   </div>
 </div>
 
@@ -205,7 +205,7 @@
 (function() {
   'use strict';
 
-  // ВАША ССЫЛКА НА FIREBASE УЖЕ ВСТАВЛЕНА СЮДА
+  // ВАША ССЫЛКА НА FIREBASE
   var FIREBASE_URL = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores.json'; 
 
   var GRID = 20;
@@ -228,6 +228,13 @@
   var returnFromStats = null;
   var returnFromAlley = null;
   var currentScreen = null;
+
+  // Создаем или получаем уникальный ID устройства
+  var deviceId = localStorage.getItem('snake.deviceId');
+  if (!deviceId) {
+    deviceId = 'dev_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    localStorage.setItem('snake.deviceId', deviceId);
+  }
 
   var px = 400, cell = 20;
   var snake, dir, queue, food, score, acc, stepMs, lastTime = 0;
@@ -298,6 +305,7 @@
     try {
       localStorage.removeItem(LS_PLAYERS);
       localStorage.removeItem(LS_LAST);
+      // ID устройства НЕ удаляем, чтобы сохранить привязку в общем рейтинге
     } catch (e) {}
 
     resetGame();
@@ -398,19 +406,15 @@
     fetch(FIREBASE_URL)
       .then(res => res.json())
       .then(data => {
-        var bestScores = {};
+        var list = [];
         if (data) {
           for (var key in data) {
-            var entry = data[key];
-            if (entry && entry.name) {
-              if (!bestScores[entry.name] || entry.score > bestScores[entry.name].score) {
-                bestScores[entry.name] = entry;
-              }
+            if (data[key] && data[key].name) {
+              list.push(data[key]);
             }
           }
         }
         
-        var list = Object.keys(bestScores).map(function(n){ return bestScores[n]; });
         list.sort(function(a, b) { return b.score - a.score; });
         
         var body = '';
@@ -574,17 +578,31 @@
     updateHud();
   }
 
+  // ОТПРАВКА СЧЕТА С ПРИВЯЗКОЙ К УСТРОЙСТВУ
   function sendScoreToServer() {
     if (FIREBASE_URL.indexOf('http') === -1 || score === 0) return;
-    fetch(FIREBASE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: currentPlayer,
-        score: score,
-        time: Date.now()
-      })
-    }).catch(function(e) { console.log('Ошибка отправки на сервер:', e); });
+    
+    // Ссылка конкретно для этого устройства
+    var baseUrl = FIREBASE_URL.replace('/scores.json', '');
+    var playerUrl = baseUrl + '/scores/' + deviceId + '.json';
+
+    // Сначала проверяем текущий рекорд ЭТОГО УСТРОЙСТВА на сервере
+    fetch(playerUrl)
+      .then(res => res.json())
+      .then(existingData => {
+         // Если записи нет или новый счет больше старого — перезаписываем
+         if (!existingData || score > existingData.score) {
+             fetch(playerUrl, {
+                 method: 'PUT', // PUT перезаписывает запись, не создавая дубликат
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({
+                     name: currentPlayer,
+                     score: score,
+                     time: Date.now()
+                 })
+             }).catch(function(e) { console.log('Ошибка записи:', e); });
+         }
+      }).catch(function(e) { console.log('Ошибка чтения:', e); });
   }
 
   function die() {
