@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 68)</title>
+<title>Игры — Вова (версия 69)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -219,6 +219,7 @@
   var bsView = 'enemy';
   var bsMyShips = [], bsMyHits = 0, bsEnemyHits = 0;
   var bsTotalShipCells = 20;
+  var bsFallbackTimer = null;
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function fmtDate(ts) { var d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'}); }
@@ -452,7 +453,10 @@
     bsMyShips = [];
     bsEnemyHits = 0;
     bsMyHits = 0;
+    bsIsMyTurn = false;
+    bsView = 'enemy';
 
+    if (bsFallbackTimer) { clearInterval(bsFallbackTimer); bsFallbackTimer = null; }
     if (bsRoomRef) bsRoomRef.off();
     bsRoomRef = db.ref('bs_rooms/' + bsRoom);
     
@@ -496,11 +500,12 @@
         });
       }
 
-      // Автозапуск когда оба "Готовы"
-      if (bsState === 'placing' && pIds.length === 2) {
-        var r1 = data.players[pIds[0]].ready, r2 = data.players[pIds[1]].ready;
-        if (r1 && r2 && data.status !== 'playing') {
-          bsRoomRef.update({ status: 'playing', turn: pIds[0] });
+      // Проверка «оба готовы» — независимо от bsState, чтобы любой игрок мог запустить игру
+      if (pIds.length === 2 && data.players[pIds[0]] && data.players[pIds[1]]) {
+        var bothReady = data.players[pIds[0]].ready && data.players[pIds[1]].ready;
+        if (bothReady && data.status !== 'playing') {
+          var sorted = pIds.slice().sort();
+          bsRoomRef.update({ status: 'playing', turn: sorted[0] });
         }
       }
 
@@ -540,8 +545,8 @@
         }
       }
 
-      // СНАЧАЛА переводим состояние
-      if (data.status === 'playing' && bsState === 'placing') {
+      // СНАЧАЛА переводим состояние — срабатываем при любом bsState кроме уже playing/over
+      if (data.status === 'playing' && bsState !== 'playing' && bsState !== 'over') {
         bsState = 'playing';
         hideOverlay();
       }
@@ -556,13 +561,14 @@
         showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" id="btnLeaveWin">В меню</button>');
         document.getElementById('btnLeaveWin').addEventListener('pointerdown', window.leaveBS);
       }
-      
-      if (bsState === 'playing') bsDraw();
+
+      if (bsState === 'playing' || bsState === 'over') bsDraw();
     });
     bsDraw();
   }
 
   window.leaveBS = function() {
+    if (bsFallbackTimer) { clearInterval(bsFallbackTimer); bsFallbackTimer = null; }
     if (bsRoomRef) { 
       bsRoomRef.child('players/' + deviceId).remove();
       bsRoomRef.off(); 
@@ -624,18 +630,40 @@
     bsRoomRef.child('players/' + deviceId).update({ ready: true });
     showScreen('Ожидание', 'Ждем второго игрока...', '<button class="btn danger" id="btnLeaveWait">Выйти</button>');
     document.getElementById('btnLeaveWait').addEventListener('pointerdown', window.leaveBS);
-    
-    bsRoomRef.once('value').then(function(snap) {
-      var data = snap.val();
-      if (!data || !data.players) return;
-      var pIds = Object.keys(data.players);
-      if (pIds.length === 2) {
-        var p1 = data.players[pIds[0]], p2 = data.players[pIds[1]];
-        if (p1.ready && p2.ready && data.status !== 'playing') {
-          bsRoomRef.update({ status: 'playing', turn: pIds[0] });
-        }
+
+    // Резервный опрос: раз в секунду до 30 сек проверяем, не началась ли игра
+    if (bsFallbackTimer) { clearInterval(bsFallbackTimer); bsFallbackTimer = null; }
+    var fallbackRoomRef = bsRoomRef;
+    var checkCount = 0;
+    bsFallbackTimer = setInterval(function() {
+      checkCount++;
+      if (checkCount > 30) { clearInterval(bsFallbackTimer); bsFallbackTimer = null; return; }
+      if (bsState === 'playing' || bsState === 'over' || bsState === 'menu') {
+        clearInterval(bsFallbackTimer); bsFallbackTimer = null; return;
       }
-    });
+      if (!fallbackRoomRef || bsRoomRef !== fallbackRoomRef) {
+        clearInterval(bsFallbackTimer); bsFallbackTimer = null; return;
+      }
+      fallbackRoomRef.once('value').then(function(snap) {
+        var data = snap.val();
+        if (!data || !data.players) return;
+        var pIds = Object.keys(data.players);
+        if (pIds.length !== 2) return;
+        if (!data.players[pIds[0]] || !data.players[pIds[1]]) return;
+
+        var bothReady = data.players[pIds[0]].ready && data.players[pIds[1]].ready;
+        if (bothReady && data.status !== 'playing') {
+          var sorted = pIds.slice().sort();
+          fallbackRoomRef.update({ status: 'playing', turn: sorted[0] });
+        }
+        if (data.status === 'playing' && bsState !== 'playing' && bsState !== 'over') {
+          bsState = 'playing';
+          hideOverlay();
+          bsDraw();
+          clearInterval(bsFallbackTimer); bsFallbackTimer = null;
+        }
+      }).catch(function() {});
+    }, 1000);
   };
 
   window.toggleBSView = function() {
