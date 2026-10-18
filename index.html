@@ -113,6 +113,7 @@ var state='name';
 var physicalDeviceId=store.get('snake.physicalDeviceId')||('dev_'+Math.random().toString(36).substring(2,10));
 store.set('snake.physicalDeviceId',physicalDeviceId);
 var deviceId=physicalDeviceId;
+var lockedNick=store.get('vova.lockedNick')||'';
 var px=400,cell=20,GRID=20;
 var particles=[];
 var loopStarted=false;
@@ -123,7 +124,6 @@ var flappyPipes=[],flappyScore=0,flappyState='ready',flappySpeed=2;
 var tankPlayer={x:200,y:200,w:20,h:20,speed:120,dir:'up',cooldown:0};
 var tankEnemies=[],tankBullets=[],tankWalls=[],tankScore=0;
 var tankKeys={up:false,down:false,left:false,right:false};
-var bsRoom='',bsMyGrid=[],bsEnemyGrid=[],bsState='menu',bsRoomRef=null,bsIsMyTurn=false,bsView='enemy',bsMyHits=0,bsEnemyHits=0,bsTotalShipCells=20,bsPollTimer=null,bsGameOverShown=false;
 
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function fmtDate(ts){var d=new Date(ts),n=new Date();return d.toDateString()===n.toDateString()?d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})}
@@ -131,8 +131,9 @@ var actx=null;
 function beep(f,d,t,v){t=t||'sine';v=v||0.05;try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();var o=actx.createOscillator(),g=actx.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;o.connect(g).connect(actx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,actx.currentTime+d);o.stop(actx.currentTime+d)}catch(e){}}
 function showScreen(title,text,actions){try{if(!ovTitle)return;ovTitle.textContent=title;ovText.innerHTML=text;ovActions.innerHTML=actions;overlay.style.display='flex';overlay.classList.add('show');if(tankControls)tankControls.classList.remove('active')}catch(e){console.log(e)}}
 function hideOverlay(){try{overlay.classList.remove('show');overlay.style.display='none'}catch(e){}}
-function updateHud(){try{hudPlayer.textContent=currentPlayer||'—';var p=players[currentPlayer];bestEl.textContent=p?p.best:0;scoreEl.textContent=state==='tanks'?tankScore:(state==='bs'?bsEnemyHits:(score||0))}catch(e){}}
+function updateHud(){try{hudPlayer.textContent=currentPlayer||'—';var p=players[currentPlayer];bestEl.textContent=p?p.best:0;scoreEl.textContent=state==='tanks'?tankScore:(score||0)}catch(e){}}
 
+// ========== ВХОД ==========
 window.startGame=function(){
   var inputName=document.getElementById('nameInput');
   var inputPass=document.getElementById('passInput');
@@ -141,6 +142,7 @@ window.startGame=function(){
   var name=inputName?inputName.value.trim().replace(/\s+/g,' ').slice(0,16):'';
   var pass=inputPass?inputPass.value.trim().slice(0,20):'';
   if(!name||!pass){statusDiv.style.color='#ff4d6d';statusDiv.textContent='Введи имя и пароль!';return}
+  if(lockedNick&&name!==lockedNick){statusDiv.style.color='#ff4d6d';statusDiv.textContent='Устройство привязано к аккаунту: '+lockedNick;return}
   statusDiv.style.color='#ffd166';statusDiv.textContent='Подключение...';
   if(btn)btn.textContent='ЗАГРУЗКА...';
   if(!db){statusDiv.textContent='Нет сети. Вход без рейтинга...';setTimeout(function(){enterGame(name)},1000);return}
@@ -161,6 +163,11 @@ window.startGame=function(){
 
 function enterGame(name){
   try{
+    if(!lockedNick){
+      lockedNick=name;store.set('vova.lockedNick',name);
+      var _ni=document.getElementById('nameInput');
+      if(_ni){_ni.value=name;_ni.readOnly=true;_ni.style.opacity='0.7';_ni.style.cursor='not-allowed'}
+    }
     currentPlayer=name;
     if(!players[name])players[name]={games:0,best:0};
     document.getElementById('startScreen').style.display='none';
@@ -185,7 +192,6 @@ window.showGamesMenu=function(){
     '<button class="btn primary" onclick="startSnake()">🐍 Змейка</button>'+
     '<button class="btn primary" onclick="startFlappy()" style="background:linear-gradient(90deg,rgba(255,200,50,.3),rgba(255,100,50,.3));border-color:rgba(255,200,50,.5)">🐦 Flappy Bird</button>'+
     '<button class="btn primary" onclick="startTanks()" style="background:linear-gradient(90deg,rgba(50,200,100,.3),rgba(100,200,50,.3));border-color:rgba(50,200,100,.5)">🚀 Танчики</button>'+
-    '<button class="btn primary" onclick="startBSMenu()" style="background:linear-gradient(90deg,rgba(50,100,200,.3),rgba(0,200,255,.3));border-color:rgba(0,200,255,.5)">🚢 Морской бой</button>'+
     '<button class="btn ghost" onclick="screenReady()">⬅️ Назад</button>');
 };
 
@@ -201,8 +207,19 @@ window.showOtherMenu=function(){
   showScreen('⚙️ Другое','Дополнительные настройки:',
     '<button class="btn" onclick="showAlley()" style="background:linear-gradient(90deg,rgba(255,215,0,.2),rgba(255,140,0,.2));border-color:rgba(255,215,0,.5)">🏆 Аллея славы</button>'+
     '<button class="btn" onclick="showPromo()" style="background:linear-gradient(90deg,rgba(255,0,255,.2),rgba(0,255,255,.2));border-color:rgba(255,0,255,.5)">🎁 Промокоды</button>'+
+    '<button class="btn" onclick="showResetLock()" style="background:linear-gradient(90deg,rgba(255,100,0,.2),rgba(255,50,50,.2));border-color:rgba(255,100,0,.5)">🔓 Сменить аккаунт устройства</button>'+
     '<button class="btn danger" onclick="logoutConfirm()">🚪 Выйти из аккаунта</button>'+
     '<button class="btn ghost" onclick="screenReady()">⬅️ Назад</button>');
+};
+
+window.showResetLock=function(){
+  if(!lockedNick){showScreen('Смена аккаунта','На этом устройстве нет привязанного аккаунта.','<button class="btn primary" onclick="showOtherMenu()">⬅️ Назад</button>');return}
+  showScreen('Смена аккаунта',
+    'Сейчас устройство привязано к: <b style="color:#fff">'+esc(lockedNick)+'</b><br><br>Если сбросить, после выхода можно зарегистрировать другой никнейм на этом устройстве.<br>Рекорды в базе сохранятся.',
+    '<button class="btn danger" id="btnResetYes">Сбросить и выйти</button>'+
+    '<button class="btn ghost" id="btnResetNo">Отмена</button>');
+  document.getElementById('btnResetYes').addEventListener('pointerdown',function(e){e.preventDefault();lockedNick='';store.remove('vova.lockedNick');hideOverlay();doLogout()});
+  document.getElementById('btnResetNo').addEventListener('pointerdown',function(e){e.preventDefault();showOtherMenu()});
 };
 
 window.logoutConfirm=function(){
@@ -217,250 +234,12 @@ window.doLogout=function(){
   currentPlayer='';players={};deviceId=physicalDeviceId;hideOverlay();
   document.getElementById('startScreen').style.display='flex';
   if(canvas)canvas.style.display='none';
-  document.getElementById('nameInput').value='';
+  var _ni=document.getElementById('nameInput');
+  if(_ni){_ni.value=lockedNick||''}
   document.getElementById('passInput').value='';
   document.getElementById('loginStatus').textContent='';
   document.getElementById('loginBtn').textContent='ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ';
 };
-
-// ========== МОРСКОЙ БОЙ ==========
-function bsEmptyGrid(){return Array(10).fill().map(function(){return Array(10).fill(0)})}
-
-window.startBSMenu=function(){
-  state='bs_menu';
-  showScreen('🚢 Морской бой','Создай комнату или введи код друга:',
-    '<input id="bsRoomInput" class="name-input" maxlength="6" placeholder="Код комнаты" style="text-transform:uppercase;">'+
-    '<button class="btn primary" id="btnCreateBS">Создать комнату</button>'+
-    '<button class="btn" id="btnJoinBS">Войти по коду</button>'+
-    '<button class="btn ghost" onclick="showGamesMenu()">⬅️ Назад</button>');
-  document.getElementById('btnCreateBS').addEventListener('pointerdown',function(e){e.preventDefault();createBSRoom()});
-  document.getElementById('btnJoinBS').addEventListener('pointerdown',function(e){e.preventDefault();joinBSRoom()});
-};
-
-function createBSRoom(){
-  if(!db){showScreen('Ошибка','Нет интернета','<button class="btn primary" onclick="startBSMenu()">Назад</button>');return}
-  bsRoom='bs_'+Math.floor(1000+Math.random()*9000);
-  initBSRoom();
-}
-
-function joinBSRoom(){
-  if(!db){showScreen('Ошибка','Нет интернета','<button class="btn primary" onclick="startBSMenu()">Назад</button>');return}
-  var inp=document.getElementById('bsRoomInput');
-  var code=inp?inp.value.trim():'';
-  if(code.length<4){showScreen('Ошибка','Введи 4-значный код','<button class="btn primary" onclick="startBSMenu()">Назад</button>');return}
-  bsRoom='bs_'+code;
-  initBSRoom();
-}
-
-function stopBSPoll(){if(bsPollTimer){clearInterval(bsPollTimer);bsPollTimer=null}}
-
-function initBSRoom(){
-  bsState='waiting';
-  bsMyGrid=bsEmptyGrid();bsEnemyGrid=bsEmptyGrid();
-  bsMyHits=0;bsEnemyHits=0;bsIsMyTurn=false;bsView='enemy';bsGameOverShown=false;
-  stopBSPoll();
-  if(bsRoomRef){try{bsRoomRef.off()}catch(e){}}
-  bsRoomRef=db.ref('bs_rooms/'+bsRoom);
-  bsRoomRef.child('players/'+deviceId).update({name:currentPlayer,ready:false});
-  bsRoomRef.child('players/'+deviceId).onDisconnect().remove();
-  showScreen('Комната: '+bsRoom.replace('bs_',''),'Ожидание второго игрока...','<button class="btn danger" id="btnLeaveBS1">Выйти</button>');
-  document.getElementById('btnLeaveBS1').addEventListener('pointerdown',function(e){e.preventDefault();leaveBS()});
-  bsRoomRef.on('value',function(snap){bsApply(snap.val())});
-  bsPollTimer=setInterval(function(){
-    if(!bsRoomRef||bsState==='menu'){stopBSPoll();return}
-    bsRoomRef.once('value').then(function(snap){bsApply(snap.val())}).catch(function(){});
-  },500);
-  bsDraw();
-}
-
-function bsApply(data){
-  if(!data||!data.players)return;
-  var pls=data.players;
-  var pIds=Object.keys(pls);
-  var me=pls[deviceId];
-  if(!me)return;
-  bsApplyShots(data.shots||{});
-  // Форс-старт: оба ready → пишем playing
-  if(pIds.length===2){
-    var other=pIds.find(function(id){return id!==deviceId});
-    if(other&&pls[other]&&pls[other].ready&&me.ready){
-      if(data.status!=='playing'&&data.status!=='over'){
-        var sorted=pIds.slice().sort();
-        bsRoomRef.update({status:'playing',turn:sorted[0]});
-      }
-    }
-  }
-  // Принудительно в игру
-  if(data.status==='playing'&&bsState!=='playing'&&bsState!=='over'){
-    bsState='playing';hideOverlay();
-  }
-  // waiting → placing
-  if(bsState==='waiting'&&pIds.length===2){
-    bsState='placing';prepareBSShips();bsView='my';
-    showScreen('Расстановка','Корабли готовы. Нажми "Готов".',
-      '<button class="btn primary" id="btnBSReady">Готов</button>'+
-      '<button class="btn" id="btnBSShuffle">Перемешать</button>');
-    document.getElementById('btnBSReady').addEventListener('pointerdown',function(e){e.preventDefault();bsReady()});
-    document.getElementById('btnBSShuffle').addEventListener('pointerdown',function(e){e.preventDefault();prepareBSShips();bsDraw()});
-  }
-  // Соперник ушёл
-  if((bsState==='playing'||bsState==='placing')&&pIds.length<2){
-    bsState='menu';stopBSPoll();
-    showScreen('Игра окончена','Соперник покинул игру.','<button class="btn primary" id="bsBackBtn">В меню</button>');
-    document.getElementById('bsBackBtn').addEventListener('pointerdown',function(e){e.preventDefault();showGamesMenu()});
-    return;
-  }
-  // Ход
-  if(bsState==='playing'){
-    var hasPending=false;
-    if(data.shots)for(var k in data.shots){var s=data.shots[k];if(s&&s.by===deviceId&&s.status==='pending'){hasPending=true;break}}
-    bsIsMyTurn=!hasPending&&(data.turn===deviceId);
-    bsDraw();
-  }
-  // Победа
-  if(bsState==='playing'&&bsEnemyHits>=bsTotalShipCells&&!bsGameOverShown){
-    bsGameOverShown=true;bsState='over';stopBSPoll();
-    bsRoomRef.update({status:'over',winner:deviceId});
-    showScreen('🏆 Победа!','Флот врага потоплен!','<button class="btn primary" id="btnLeaveWin">В меню</button>');
-    document.getElementById('btnLeaveWin').addEventListener('pointerdown',function(e){e.preventDefault();leaveBS()});
-  }
-}
-
-function bsApplyShots(shots){
-  for(var key in shots){
-    var shot=shots[key];if(!shot)continue;
-    var p=key.split('_');
-    var sx=parseInt(p[0],10),sy=parseInt(p[1],10);
-    if(isNaN(sx)||isNaN(sy)||sx<0||sx>9||sy<0||sy>9)continue;
-    if(shot.by===deviceId){
-      if(shot.status==='hit'&&bsEnemyGrid[sy][sx]!==2){bsEnemyGrid[sy][sx]=2;bsEnemyHits++;beep(600,0.1,'square')}
-      else if(shot.status==='miss'&&bsEnemyGrid[sy][sx]!==3){bsEnemyGrid[sy][sx]=3;beep(300,0.1,'sine')}
-    }else{
-      if(shot.status==='pending'){
-        if(bsMyGrid[sy][sx]===1){
-          bsMyGrid[sy][sx]=2;bsMyHits++;
-          if(bsRoomRef)bsRoomRef.child('shots/'+key).update({status:'hit'});
-        }else if(bsMyGrid[sy][sx]===0){
-          bsMyGrid[sy][sx]=3;
-          var u={};u['shots/'+key+'/status']='miss';u['turn']=deviceId;
-          if(bsRoomRef)bsRoomRef.update(u);
-        }
-      }else if(shot.status==='hit'&&bsMyGrid[sy][sx]!==2){bsMyGrid[sy][sx]=2;bsMyHits++}
-      else if(shot.status==='miss'&&bsMyGrid[sy][sx]!==3){bsMyGrid[sy][sx]=3}
-    }
-  }
-  if(bsMyHits>=bsTotalShipCells&&bsState==='playing'&&!bsGameOverShown){
-    bsGameOverShown=true;bsState='over';stopBSPoll();
-    showScreen('💀 Поражение','Флот потоплен...','<button class="btn danger" id="btnLeaveLose">В меню</button>');
-    document.getElementById('btnLeaveLose').addEventListener('pointerdown',function(e){e.preventDefault();leaveBS()});
-  }
-}
-
-function bsReady(){
-  if(!bsRoomRef)return;
-  bsRoomRef.child('players/'+deviceId).update({ready:true});
-  showScreen('Ожидание','Ждём соперника...','<button class="btn danger" id="btnLeaveWait">Выйти</button>');
-  document.getElementById('btnLeaveWait').addEventListener('pointerdown',function(e){e.preventDefault();leaveBS()});
-}
-
-window.leaveBS=function(){
-  stopBSPoll();
-  if(bsRoomRef){
-    try{bsRoomRef.child('players/'+deviceId).remove()}catch(e){}
-    try{bsRoomRef.off()}catch(e){}
-  }
-  bsRoomRef=null;bsRoom='';bsState='menu';bsGameOverShown=false;
-  showGamesMenu();
-};
-
-function bsButtonRect(){return{x:px/2-120,y:px-50,w:240,h:40}}
-
-function bsDraw(){
-  if(!ctx)return;
-  ctx.fillStyle='#0a1224';ctx.fillRect(0,0,px,px);
-  var cs=36,ox=(px-cs*10)/2,oy=40;
-  for(var y=0;y<10;y++)for(var x=0;x<10;x++){
-    var rx=ox+x*cs,ry=oy+y*cs;
-    var fill='rgba(255,255,255,0.05)',stroke='rgba(120,180,255,0.2)';
-    if(bsView==='my'){
-      if(bsMyGrid[y]&&bsMyGrid[y][x]===1)fill='#46e6a0';
-      if(bsMyGrid[y]&&bsMyGrid[y][x]===2)fill='#ff4d6d';
-      if(bsMyGrid[y]&&bsMyGrid[y][x]===3)fill='#444';
-    }else{
-      if(bsEnemyGrid[y]&&bsEnemyGrid[y][x]===2)fill='#ff4d6d';
-      if(bsEnemyGrid[y]&&bsEnemyGrid[y][x]===3)fill='#444';
-    }
-    ctx.fillStyle=fill;ctx.fillRect(rx,ry,cs-2,cs-2);
-    ctx.strokeStyle=stroke;ctx.strokeRect(rx,ry,cs-2,cs-2);
-  }
-  ctx.fillStyle='#fff';ctx.font='bold 18px Arial';ctx.textAlign='center';
-  ctx.fillText(bsView==='my'?'Твои корабли':'Поле врага',px/2,25);
-  var btn=bsButtonRect(),text,color;
-  if(bsView==='my'){text='⚔️ Выбор удара';color='rgba(70,230,160,0.4)'}
-  else if(bsIsMyTurn){text='⚔️ Твой ход! Стреляй';color='rgba(70,230,160,0.4)'}
-  else{text='⏳ Ход врага...';color='rgba(255,77,109,0.4)'}
-  ctx.fillStyle=color;ctx.fillRect(btn.x,btn.y,btn.w,btn.h);
-  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(btn.x,btn.y,btn.w,btn.h);
-  ctx.fillStyle='#fff';ctx.fillText(text,px/2,btn.y+25);
-}
-
-function handleBSClick(cx,cy){
-  if(bsState!=='playing')return;
-  var r=canvas.getBoundingClientRect();
-  var x=cx-r.left,y=cy-r.top;
-  var btn=bsButtonRect();
-  if(x>=btn.x&&x<=btn.x+btn.w&&y>=btn.y&&y<=btn.y+btn.h){
-    bsView=bsView==='my'?'enemy':'my';bsDraw();return;
-  }
-  if(!bsIsMyTurn||bsView!=='enemy')return;
-  if(!bsRoomRef)return;
-  // Свежая проверка хода из базы перед выстрелом
-  bsRoomRef.once('value').then(function(snap){
-    var d=snap.val();
-    if(!d||d.status!=='playing'||d.turn!==deviceId){bsIsMyTurn=false;bsDraw();return}
-    var hasPending=false;
-    if(d.shots)for(var k in d.shots){var s=d.shots[k];if(s&&s.by===deviceId&&s.status==='pending'){hasPending=true;break}}
-    if(hasPending)return;
-    var cs=36,ox=(px-cs*10)/2,oy=40;
-    var gx=Math.floor((x-ox)/cs),gy=Math.floor((y-oy)/cs);
-    if(gx<0||gx>9||gy<0||gy>9)return;
-    if(bsEnemyGrid[gy][gx]!==0)return;
-    bsIsMyTurn=false;
-    bsRoomRef.child('shots/'+gx+'_'+gy).set({by:deviceId,status:'pending'});
-    beep(500,0.03,'square',0.03);
-    bsDraw();
-  }).catch(function(){});
-}
-
-function prepareBSShips(){
-  for(var r=0;r<50;r++){
-    var g=bsEmptyGrid(),ships=[4,3,3,2,2,2,1,1,1,1],failed=false;
-    for(var s=0;s<ships.length&&!failed;s++){
-      var sz=ships[s],placed=false,tries=0;
-      while(!placed&&tries<400){
-        tries++;
-        var hz=Math.random()<0.5;
-        var x=Math.floor(Math.random()*(10-(hz?sz:0)));
-        var y=Math.floor(Math.random()*(10-(hz?0:sz)));
-        var ok=true;
-        for(var i=0;i<sz&&ok;i++){
-          var cx=x+(hz?i:0),cy=y+(hz?0:i);
-          for(var dx=-1;dx<=1&&ok;dx++)for(var dy=-1;dy<=1;dy++){
-            var nx=cx+dx,ny=cy+dy;
-            if(nx>=0&&nx<10&&ny>=0&&ny<10&&g[ny][nx]===1){ok=false;break}
-          }
-        }
-        if(ok){for(var j=0;j<sz;j++)g[y+(hz?0:j)][x+(hz?j:0)]=1;placed=true}
-      }
-      if(!placed)failed=true;
-    }
-    if(!failed){bsMyGrid=g;return}
-  }
-}
-
-canvas.addEventListener('pointerdown',function(e){
-  if(bsState==='playing')handleBSClick(e.clientX,e.clientY);
-});
 
 // ========== ЗМЕЙКА ==========
 function resetGame(){
@@ -704,7 +483,6 @@ function rrect(x,y,w,h,r){
 
 function draw(){
   if(!ctx)return;
-  if(bsState==='placing'||bsState==='playing'||bsState==='over'){bsDraw();return}
   if(state==='tanks'){drawTanks();return}
   ctx.fillStyle='#0c1224';ctx.fillRect(0,0,px,px);
   if(state==='flappy'){
@@ -919,6 +697,12 @@ window.checkPromo=function(){
 };
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
+if(lockedNick){
+  var _ni0=document.getElementById('nameInput');
+  if(_ni0){_ni0.value=lockedNick;_ni0.readOnly=true;_ni0.style.opacity='0.7';_ni0.style.cursor='not-allowed'}
+  var _sd0=document.getElementById('loginStatus');
+  if(_sd0){_sd0.style.color='#8ea6c9';_sd0.textContent='Устройство привязано к аккаунту'}
+}
 resetGame();updateHud();resize();
 if(!loopStarted){loopStarted=true;requestAnimationFrame(loop)}
 
