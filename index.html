@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 70)</title>
+<title>Игры — Вова (версия 71)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -20,13 +20,11 @@
     text-transform:uppercase;letter-spacing:.02em;transform:rotate(-12deg);
     color:rgba(255,255,255,.16);text-shadow:0 0 90px rgba(255,255,255,.14);
   }
-  
   #startScreen {
     position: fixed; inset: 0; z-index: 9999; background: #05070d;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 20px;
   }
-
   #wrap{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:16px;align-items:center;max-width:100vw}
   #hud{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px;
        font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8ea6c9}
@@ -36,7 +34,6 @@
   #stage{position:relative;line-height:0}
   canvas{display:block;border-radius:18px;touch-action:none;
     box-shadow:0 0 0 1px rgba(120,180,255,.16),0 24px 70px -24px rgba(40,140,255,.75)}
-  
   #overlay{
     position:absolute;inset:0;display:none; 
     flex-direction:column;align-items:center;justify-content:center;gap:10px;
@@ -45,10 +42,8 @@
     opacity:0;transition:opacity .2s ease;z-index:10;
   }
   #overlay.show{opacity:1;pointer-events:auto; display:flex;}
-  
   #ov-title{margin:0;font-size:clamp(20px,5.6vw,28px);
     color:#46e6a0; text-shadow:0 0 15px rgba(70,230,160,.4); font-weight:800;}
-    
   #ov-text{margin:0;font-size:14px;line-height:1.55;color:#a9bfdd;max-height:44vh;overflow:auto;width:100%}
   #ov-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;margin-top:4px}
   .btn{
@@ -71,7 +66,6 @@
     margin-bottom: 10px; touch-action: manipulation;
   }
   .name-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
-  
   .stats{width:100%;border-collapse:collapse;font-size:13px}
   .stats th,.stats td{padding:7px 6px;text-align:left;border-bottom:1px solid rgba(120,180,255,.1)}
   .stats th{color:#8ea6c9;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
@@ -79,7 +73,6 @@
   .stats td{color:#e8f1ff}
   .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
   .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
-
   .alley{width:100%;display:flex;flex-direction:column;gap:10px;text-align:left;padding:4px 2px}
   .alley-item{
     display:flex;align-items:center;gap:12px;
@@ -98,7 +91,6 @@
   .alley-item.dev{border-color:rgba(70,230,160,.45);background:rgba(70,230,160,.08)}
   .alley-item.dev .alley-num{background:linear-gradient(135deg,#46e6a0,#3aa8ff);color:#06281f}
   .alley-item.empty{opacity:.85}
-
   #tank-controls { position:absolute; inset:0; pointer-events:none; display:none; z-index:5; }
   #tank-controls.active { display:block; }
   .d-pad {
@@ -116,7 +108,6 @@
   .d-pad .left { grid-column:1; grid-row:2; }
   .d-pad .right { grid-column:3; grid-row:2; }
   .d-pad .down { grid-column:2; grid-row:3; }
-  
   #fire-btn {
     position:absolute; bottom:40px; right:30px; width:80px; height:80px;
     border-radius:50%; background:rgba(255,77,109,0.3); border:2px solid rgba(255,77,109,0.6);
@@ -131,12 +122,9 @@
 <div id="startScreen">
   <h1 style="color:#46e6a0; font-size:28px; margin-bottom:10px; text-align:center;">Вход в игру</h1>
   <p style="color:#8ea6c9; font-size:12px; margin-bottom:20px; text-align:center;">Если имени нет — создастся новый аккаунт.<br>Если имя занято — введи свой пароль.</p>
-  
   <input id="nameInput" class="name-input" maxlength="16" placeholder="Твоё имя" autocomplete="off">
   <input id="passInput" type="password" class="name-input" maxlength="20" placeholder="Пароль" autocomplete="off">
-  
   <div id="loginStatus" style="color:#ffd166; font-size:14px; font-weight:bold; min-height:20px; margin-bottom:10px; text-align:center;"></div>
-
   <button type="button" id="loginBtn" class="btn ghost wide" onclick="startGame()" style="background:rgba(70,140,255,.2);">ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ</button>
 </div>
 
@@ -150,7 +138,6 @@
   </div>
   <div id="stage">
     <canvas id="c" style="display:none;"></canvas>
-    
     <div id="tank-controls">
       <div class="d-pad">
         <button class="up" onpointerdown="event.preventDefault(); tankInput('up', true)" onpointerup="tankInput('up', false)" onpointerleave="tankInput('up', false)">▲</button>
@@ -160,7 +147,6 @@
       </div>
       <button id="fire-btn" onpointerdown="event.preventDefault(); tankFire()">ОГОНЬ</button>
     </div>
-
     <div id="overlay">
       <h1 id="ov-title">Игра</h1>
       <div id="ov-text"></div>
@@ -217,10 +203,11 @@
   var bsRoomRef = null;
   var bsIsMyTurn = false;
   var bsView = 'enemy';
-  var bsMyShips = [], bsMyHits = 0, bsEnemyHits = 0;
+  var bsMyHits = 0, bsEnemyHits = 0;
   var bsTotalShipCells = 20;
   var bsPollTimer = null;
   var bsGameOverShown = false;
+  var bsRoomListener = null;
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function fmtDate(ts) { var d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'}); }
@@ -266,42 +253,35 @@
     } catch(e) {}
   }
 
-  // --- БЕЗОПАСНЫЙ ВХОД ---
+  // --- ВХОД ---
   window.startGame = function() {
     var inputName = document.getElementById('nameInput');
     var inputPass = document.getElementById('passInput');
     var statusDiv = document.getElementById('loginStatus');
     var btn = document.getElementById('loginBtn');
-    
     var name = inputName ? inputName.value.trim().replace(/\s+/g, ' ').slice(0, 16) : '';
     var pass = inputPass ? inputPass.value.trim().slice(0, 20) : '';
-    
     if (!name || !pass) {
       statusDiv.style.color = '#ff4d6d';
       statusDiv.textContent = 'Введи имя и пароль!';
       return;
     }
-
     statusDiv.style.color = '#ffd166';
     statusDiv.textContent = 'Подключение...';
     if (btn) btn.textContent = 'ЗАГРУЗКА...';
-
     if (!db) {
       statusDiv.textContent = 'Нет сети. Вход без рейтинга...';
       setTimeout(function() { enterGame(name); }, 1000);
       return;
     }
-
     var timeoutId = setTimeout(function() {
       statusDiv.textContent = 'Сервер не отвечает. Вход без рейтинга...';
       setTimeout(function() { enterGame(name); }, 1000);
     }, 4000);
-
     try {
       db.ref('users/' + name).once('value').then(function(snapshot) {
         clearTimeout(timeoutId);
         var user = snapshot.val();
-        
         if (user) {
           if (user.password === pass) {
             deviceId = user.deviceId;
@@ -312,10 +292,7 @@
             if (btn) btn.textContent = 'ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ';
           }
         } else {
-          db.ref('users/' + name).set({
-            password: pass,
-            deviceId: physicalDeviceId
-          }).then(function() {
+          db.ref('users/' + name).set({ password: pass, deviceId: physicalDeviceId }).then(function() {
             deviceId = physicalDeviceId;
             enterGame(name);
           }).catch(function(err) {
@@ -343,10 +320,8 @@
     try {
       currentPlayer = name;
       if (!players[name]) players[name] = { games: 0, best: 0 };
-      
       document.getElementById('startScreen').style.display = 'none';
       if (canvas) canvas.style.display = 'block';
-      
       resetGame();
       updateHud();
       screenReady();
@@ -418,11 +393,8 @@
     document.getElementById('loginBtn').textContent = 'ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ';
   };
 
-  // ============ МОРСКОЙ БОЙ (переработан) ============
-  
-  function bsEmptyGrid() {
-    return Array(10).fill().map(function(){ return Array(10).fill(0); });
-  }
+  // ============ МОРСКОЙ БОЙ ============
+  function bsEmptyGrid() { return Array(10).fill().map(function(){ return Array(10).fill(0); }); }
 
   window.startBSMenu = function() {
     state = 'bs_menu';
@@ -432,151 +404,106 @@
       '<button class="btn" id="btnJoinBS">Войти по коду</button>' +
       '<button class="btn ghost" onclick="showGamesMenu()">⬅️ Назад</button>'
     );
-    document.getElementById('btnCreateBS').addEventListener('pointerdown', window.createBSRoom);
-    document.getElementById('btnJoinBS').addEventListener('pointerdown', window.joinBSRoom);
+    var bc = document.getElementById('btnCreateBS');
+    if (bc) bc.addEventListener('pointerdown', function(e){ e.preventDefault(); createBSRoom(); });
+    var bj = document.getElementById('btnJoinBS');
+    if (bj) bj.addEventListener('pointerdown', function(e){ e.preventDefault(); joinBSRoom(); });
   };
 
-  window.createBSRoom = function() {
+  function createBSRoom() {
     if (!db) { showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
-    var code = Math.floor(1000 + Math.random() * 9000).toString();
-    bsRoom = 'bs_' + code;
+    bsRoom = 'bs_' + Math.floor(1000 + Math.random() * 9000);
     initBSRoom();
-  };
+  }
 
-  window.joinBSRoom = function() {
+  function joinBSRoom() {
     if (!db) { showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
     var input = document.getElementById('bsRoomInput');
     var code = input ? input.value.trim() : '';
     if (code.length < 4) { showScreen('Ошибка', 'Введи 4-значный код комнаты', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
     bsRoom = 'bs_' + code;
     initBSRoom();
-  };
+  }
 
   function initBSRoom() {
     bsState = 'waiting';
     bsMyGrid = bsEmptyGrid();
     bsEnemyGrid = bsEmptyGrid();
-    bsMyShips = [];
-    bsMyHits = 0;
-    bsEnemyHits = 0;
+    bsMyHits = 0; bsEnemyHits = 0;
     bsIsMyTurn = false;
     bsView = 'enemy';
     bsGameOverShown = false;
-
     if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
     if (bsRoomRef) { try { bsRoomRef.off(); } catch(e) {} }
-
     bsRoomRef = db.ref('bs_rooms/' + bsRoom);
     bsRoomRef.child('players/' + deviceId).update({ name: currentPlayer, ready: false });
     bsRoomRef.child('players/' + deviceId).onDisconnect().remove();
-
     showScreen('Комната: ' + bsRoom.replace('bs_', ''), 'Ожидание второго игрока...', '<button class="btn danger" id="btnLeaveBS1">Выйти</button>');
-    document.getElementById('btnLeaveBS1').addEventListener('pointerdown', window.leaveBS);
-
-    // Основной слушатель (реальное время)
-    bsRoomRef.on('value', function(snap) {
-      bsProcessState(snap.val());
-    });
-
-    // Сторожевой таймер — каждую секунду принудительно проверяет состояние
+    var bl = document.getElementById('btnLeaveBS1');
+    if (bl) bl.addEventListener('pointerdown', function(e){ e.preventDefault(); leaveBS(); });
+    bsRoomListener = function(snap) { bsProcessState(snap.val()); };
+    bsRoomRef.on('value', bsRoomListener);
     bsPollTimer = setInterval(function() {
-      if (!bsRoomRef) return;
-      if (bsState === 'menu' || bsState === 'over') {
-        if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
-        return;
-      }
-      bsRoomRef.once('value').then(function(snap) {
-        bsProcessState(snap.val());
-      }).catch(function(){});
+      if (!bsRoomRef || bsState === 'menu') { if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; } return; }
+      bsRoomRef.once('value').then(function(snap) { bsProcessState(snap.val()); }).catch(function(){});
     }, 1000);
-
     bsDraw();
   }
 
   function bsProcessState(data) {
-    if (!data || !data.players) {
-      if (bsState === 'playing' || bsState === 'placing' || bsState === 'waiting') {
-        // Соперник вышел, либо комната пуста — но мы сами там? Если мы сами там, players будет содержать нас.
-        // Значит комната реально пуста — выходим.
-        return;
-      }
-      return;
-    }
-    
-    var pIds = Object.keys(data.players);
-    var pCount = pIds.length;
-
-    // 1. КРИТИЧНО: если статус 'playing' — принудительно входим в игру
-    if (data.status === 'playing' && bsState !== 'playing' && bsState !== 'over') {
+    if (!data || !data.players) return;
+    var players = data.players;
+    var pIds = Object.keys(players);
+    bsProcessShots(data.shots || {});
+    if ((data.status === 'playing' || data.status === 'over') && bsState !== 'playing' && bsState !== 'over') {
       bsState = 'playing';
       hideOverlay();
     }
-
-    // 2. Если игра идёт и соперник отключился
-    if ((bsState === 'playing' || bsState === 'placing') && pCount < 2) {
-      bsState = 'menu';
-      if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
-      showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" id="bsBackBtn">В меню</button>');
-      var b1 = document.getElementById('bsBackBtn');
-      if (b1) b1.addEventListener('pointerdown', window.showGamesMenu);
-      return;
+    if (bsState === 'playing') {
+      var hasPending = false;
+      if (data.shots) {
+        for (var k in data.shots) {
+          var sh = data.shots[k];
+          if (sh && sh.by === deviceId && sh.status === 'pending') { hasPending = true; break; }
+        }
+      }
+      bsIsMyTurn = !hasPending && (data.turn === deviceId);
     }
-
-    // 3. Переход: ждём → расстановка, когда 2 игрока
-    if (bsState === 'waiting' && pCount === 2) {
+    if (pIds.length === 2 && players[pIds[0]] && players[pIds[1]] && !data.status) {
+      if (players[pIds[0]].ready && players[pIds[1]].ready) {
+        var sorted = pIds.slice().sort();
+        bsRoomRef.update({ status: 'playing', turn: sorted[0] });
+      }
+    }
+    if (bsState === 'waiting' && pIds.length === 2) {
       bsState = 'placing';
       prepareBSShips();
       bsView = 'my';
-      showScreen('Расстановка', 'Твои корабли готовы.<br>Нажми "Готов", чтобы начать.', 
+      showScreen('Расстановка', 'Твои корабли готовы.<br>Нажми "Готов", чтобы начать.',
         '<button class="btn primary" id="btnBSReady">Готов</button>' +
-        '<button class="btn" id="btnBSShuffle">Перемешать</button>'
-      );
-      var b2 = document.getElementById('btnBSReady');
-      if (b2) b2.addEventListener('pointerdown', window.bsReady);
-      var b3 = document.getElementById('btnBSShuffle');
-      if (b3) b3.addEventListener('pointerdown', function() {
-        window.prepareBSShips();
-        window.bsDraw();
-      });
+        '<button class="btn" id="btnBSShuffle">Перемешать</button>');
+      var rdy = document.getElementById('btnBSReady');
+      if (rdy) rdy.addEventListener('pointerdown', function(e){ e.preventDefault(); bsReady(); });
+      var shuf = document.getElementById('btnBSShuffle');
+      if (shuf) shuf.addEventListener('pointerdown', function(e){ e.preventDefault(); prepareBSShips(); bsDraw(); });
     }
-
-    // 4. Автозапуск: если оба готовы — стартуем (независимо от bsState)
-    if (pCount === 2 && data.players[pIds[0]] && data.players[pIds[1]] &&
-        data.players[pIds[0]].ready && data.players[pIds[1]].ready &&
-        data.status !== 'playing' && data.status !== 'over') {
-      var sorted = pIds.slice().sort();
-      bsRoomRef.update({ status: 'playing', turn: sorted[0] });
-    }
-
-    // 5. Обработка выстрелов
-    if (data.shots) {
-      bsProcessShots(data.shots);
-    }
-
-    // 6. Обновление хода
-    if (bsState === 'playing') {
-      var pending = false;
-      if (data.shots) {
-        for (var k in data.shots) {
-          if (data.shots[k] && data.shots[k].by === deviceId && data.shots[k].status === 'pending') {
-            pending = true; break;
-          }
-        }
-      }
-      bsIsMyTurn = !pending && (data.turn === deviceId);
-      bsDraw();
-    }
-
-    // 7. Проверка победы (только один раз)
-    if (bsState === 'playing' && bsEnemyHits >= bsTotalShipCells && !bsGameOverShown) {
-      bsGameOverShown = true;
-      bsState = 'over';
-      bsRoomRef.update({ status: 'over', winner: deviceId });
+    if ((bsState === 'playing' || bsState === 'placing') && pIds.length < 2 && data.status === 'playing') {
+      bsState = 'menu';
       if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
-      showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" id="bsBackBtnWin">В меню</button>');
-      var b4 = document.getElementById('bsBackBtnWin');
-      if (b4) b4.addEventListener('pointerdown', window.leaveBS);
+      showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" id="bsBackBtn">В меню</button>');
+      var b = document.getElementById('bsBackBtn');
+      if (b) b.addEventListener('pointerdown', function(e){ e.preventDefault(); showGamesMenu(); });
+      return;
     }
+    if (bsState === 'playing' && bsEnemyHits >= bsTotalShipCells && !bsGameOverShown) {
+      bsGameOverShown = true; bsState = 'over';
+      if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
+      bsRoomRef.update({ status: 'over', winner: deviceId });
+      showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" id="btnLeaveWin">В меню</button>');
+      var bw = document.getElementById('btnLeaveWin');
+      if (bw) bw.addEventListener('pointerdown', function(e){ e.preventDefault(); leaveBS(); });
+    }
+    if (bsState === 'playing' || bsState === 'over') bsDraw();
   }
 
   function bsProcessShots(shots) {
@@ -584,70 +511,369 @@
       var shot = shots[key];
       if (!shot) continue;
       var parts = key.split('_');
-      var sx = parseInt(parts[0]);
-      var sy = parseInt(parts[1]);
+      var sx = parseInt(parts[0], 10), sy = parseInt(parts[1], 10);
       if (isNaN(sx) || isNaN(sy) || sx < 0 || sx > 9 || sy < 0 || sy > 9) continue;
-
       if (shot.by === deviceId) {
-        // Мой выстрел — только визуализация
-        if (shot.status === 'hit' && bsEnemyGrid[sy][sx] !== 2) {
-          bsEnemyGrid[sy][sx] = 2; bsEnemyHits++; beep(600, 0.1, 'square');
-        } else if (shot.status === 'miss' && bsEnemyGrid[sy][sx] !== 3) {
-          bsEnemyGrid[sy][sx] = 3; beep(300, 0.1, 'sine');
-        }
+        if (shot.status === 'hit' && bsEnemyGrid[sy][sx] !== 2) { bsEnemyGrid[sy][sx] = 2; bsEnemyHits++; beep(600, 0.1, 'square'); }
+        else if (shot.status === 'miss' && bsEnemyGrid[sy][sx] !== 3) { bsEnemyGrid[sy][sx] = 3; beep(300, 0.1, 'sine'); }
       } else {
-        // Выстрел соперника по моему полю
-        if (shot.status === 'pending' && bsMyGrid[sy][sx] === 0) {
-          if (bsRoomRef) {
-            // Проверяем — попали или нет
-            var isHit = false;
-            // Проверим по сетке: если у меня там корабль (1)
-            if (bsMyGrid[sy][sx] === 1) isHit = true;
-            // Но мы уже проверили === 0, значит это промах или... стоп, что-то не так
+        if (shot.status === 'pending') {
+          if (bsMyGrid[sy][sx] === 1) {
+            bsMyGrid[sy][sx] = 2; bsMyHits++;
+            bsRoomRef.child('shots/' + key).update({ status: 'hit' });
+            beep(500, 0.1, 'square');
+          } else if (bsMyGrid[sy][sx] === 0) {
+            bsMyGrid[sy][sx] = 3;
+            var upd = {};
+            upd['shots/' + key + '/status'] = 'miss';
+            upd['turn'] = deviceId;
+            bsRoomRef.update(upd);
+            beep(300, 0.1, 'sine');
           }
-          // На самом деле проверим нашу сетку: 1 = корабль
-          // Но если bsMyGrid[sy][sx] === 0, это пустая клетка → промах
-          bsMyGrid[sy][sx] = 3;
-          var upd = {};
-          upd['shots/' + key + '/status'] = 'miss';
-          upd['turn'] = deviceId;
-          bsRoomRef.update(upd);
-          beep(300, 0.1, 'sine');
-        } else if (shot.status === 'pending' && bsMyGrid[sy][sx] === 1) {
-          // Попали в мой корабль
-          bsMyGrid[sy][sx] = 2;
-          bsMyHits++;
-          bsRoomRef.child('shots/' + key).update({ status: 'hit' });
-          beep(500, 0.1, 'square');
-          checkBSDeath();
-        } else if (shot.status === 'hit' && bsMyGrid[sy][sx] === 1) {
-          bsMyGrid[sy][sx] = 2;
-          bsMyHits++;
-          checkBSDeath();
-        } else if (shot.status === 'miss' && bsMyGrid[sy][sx] === 0) {
-          bsMyGrid[sy][sx] = 3;
-        }
+        } else if (shot.status === 'hit' && bsMyGrid[sy][sx] !== 2) { bsMyGrid[sy][sx] = 2; bsMyHits++; }
+        else if (shot.status === 'miss' && bsMyGrid[sy][sx] !== 3) { bsMyGrid[sy][sx] = 3; }
       }
     }
+    if (bsMyHits >= bsTotalShipCells && bsState === 'playing' && !bsGameOverShown) {
+      bsGameOverShown = true; bsState = 'over';
+      if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
+      showScreen('💀 Поражение', 'Ваш флот потоплен...', '<button class="btn danger" id="btnLeaveLose">В меню</button>');
+      var b = document.getElementById('btnLeaveLose');
+      if (b) b.addEventListener('pointerdown', function(e){ e.preventDefault(); leaveBS(); });
+    }
+  }
+
+  function bsReady() {
+    if (!bsRoomRef) return;
+    bsRoomRef.child('players/' + deviceId).update({ ready: true });
+    showScreen('Ожидание', 'Ждем второго игрока...', '<button class="btn danger" id="btnLeaveWait">Выйти</button>');
+    var bl = document.getElementById('btnLeaveWait');
+    if (bl) bl.addEventListener('pointerdown', function(e){ e.preventDefault(); leaveBS(); });
   }
 
   window.leaveBS = function() {
     if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
-    if (bsRoomRef) { 
+    if (bsRoomRef) {
       try { bsRoomRef.child('players/' + deviceId).remove(); } catch(e) {}
       try { bsRoomRef.off(); } catch(e) {}
     }
-    bsRoomRef = null;
-    bsRoom = '';
-    bsState = 'menu';
-    bsGameOverShown = false;
+    bsRoomRef = null; bsRoomListener = null; bsRoom = '';
+    bsState = 'menu'; bsGameOverShown = false;
     showGamesMenu();
   };
 
-  function checkBSDeath() {
-    if (bsMyHits >= bsTotalShipCells && bsState === 'playing' && !bsGameOverShown) {
-      bsGameOverShown = true;
-      bsState = 'over';
-      if (bsRoomRef) bsRoomRef.update({ status: 'over', winner: (bsRoomRef && deviceId) ? undefined : undefined });
-      if (bsPollTimer) { clearInterval(bsPollTimer); bsPollTimer = null; }
-      showScreen('💀 Пораж
+  function bsButtonRect() { return { x: px/2 - 120, y: px - 50, w: 240, h: 40 }; }
+
+  function bsDraw() {
+    if (!ctx) return;
+    ctx.fillStyle = '#0a1224'; ctx.fillRect(0, 0, px, px);
+    var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
+    for (var y = 0; y < 10; y++) {
+      for (var x = 0; x < 10; x++) {
+        var rx = offsetX + x * cSize, ry = offsetY + y * cSize;
+        var fill = 'rgba(255,255,255,0.05)', stroke = 'rgba(120,180,255,0.2)';
+        if (bsView === 'my') {
+          if (bsMyGrid[y] && bsMyGrid[y][x] === 1) fill = '#46e6a0';
+          if (bsMyGrid[y] && bsMyGrid[y][x] === 2) fill = '#ff4d6d';
+          if (bsMyGrid[y] && bsMyGrid[y][x] === 3) fill = '#444';
+        } else {
+          if (bsEnemyGrid[y] && bsEnemyGrid[y][x] === 2) fill = '#ff4d6d';
+          if (bsEnemyGrid[y] && bsEnemyGrid[y][x] === 3) fill = '#444';
+        }
+        ctx.fillStyle = fill; ctx.fillRect(rx, ry, cSize - 2, cSize - 2);
+        ctx.strokeStyle = stroke; ctx.strokeRect(rx, ry, cSize - 2, cSize - 2);
+      }
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(bsView === 'my' ? 'Твои корабли' : 'Поле врага (Стреляй)', px/2, 25);
+    var btn = bsButtonRect(), btnText, btnColor;
+    if (bsView === 'my') { btnText = '⚔️ Выбор удара'; btnColor = 'rgba(70,230,160,0.4)'; }
+    else if (bsIsMyTurn) { btnText = '⚔️ Твой ход! Стреляй'; btnColor = 'rgba(70,230,160,0.4)'; }
+    else { btnText = '⏳ Ход врага...'; btnColor = 'rgba(255,77,109,0.4)'; }
+    ctx.fillStyle = btnColor; ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+    ctx.fillStyle = '#fff'; ctx.fillText(btnText, px/2, btn.y + 25);
+  }
+
+  function handleBSClick(clientX, clientY) {
+    if (bsState !== 'playing') return;
+    var rect = canvas.getBoundingClientRect();
+    var cx = clientX - rect.left, cy = clientY - rect.top;
+    var btn = bsButtonRect();
+    if (cx >= btn.x && cx <= btn.x + btn.w && cy >= btn.y && cy <= btn.y + btn.h) {
+      bsView = (bsView === 'my') ? 'enemy' : 'my';
+      bsDraw(); return;
+    }
+    if (bsIsMyTurn && bsView === 'enemy') {
+      var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
+      var gx = Math.floor((cx - offsetX) / cSize);
+      var gy = Math.floor((cy - offsetY) / cSize);
+      if (gx >= 0 && gx < 10 && gy >= 0 && gy < 10 && bsEnemyGrid[gy][gx] === 0) {
+        var key = gx + '_' + gy;
+        bsIsMyTurn = false;
+        bsRoomRef.child('shots/' + key).set({ by: deviceId, status: 'pending' });
+        beep(500, 0.03, 'square', 0.03);
+        bsDraw();
+      }
+    }
+  }
+
+  function prepareBSShips() {
+    for (var r = 0; r < 50; r++) {
+      var g = bsEmptyGrid();
+      var ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+      var failed = false;
+      for (var s = 0; s < ships.length && !failed; s++) {
+        var size = ships[s], placed = false, tries = 0;
+        while (!placed && tries < 400) {
+          tries++;
+          var horiz = Math.random() < 0.5;
+          var x = Math.floor(Math.random() * (10 - (horiz ? size : 0)));
+          var y = Math.floor(Math.random() * (10 - (horiz ? 0 : size)));
+          var valid = true;
+          for (var i = 0; i < size && valid; i++) {
+            var cx = x + (horiz ? i : 0), cy = y + (horiz ? 0 : i);
+            for (var dx = -1; dx <= 1 && valid; dx++) {
+              for (var dy = -1; dy <= 1; dy++) {
+                var nx = cx + dx, ny = cy + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && g[ny][nx] === 1) { valid = false; break; }
+              }
+            }
+          }
+          if (valid) {
+            for (var i2 = 0; i2 < size; i2++) g[y + (horiz ? 0 : i2)][x + (horiz ? i2 : 0)] = 1;
+            placed = true;
+          }
+        }
+        if (!placed) failed = true;
+      }
+      if (!failed) { bsMyGrid = g; return; }
+    }
+  }
+
+  canvas.addEventListener('pointerdown', function(e) {
+    if (bsState === 'playing') handleBSClick(e.clientX, e.clientY);
+  });
+
+  // --- ЗМЕЙКА ---
+  function resetGame() {
+    snake = [{x:9,y:10},{x:8,y:10},{x:7,y:10}];
+    dir = {x:1, y:0}; queue = []; particles = []; score = 0; stepMs = 150; acc = 0; spawnFood();
+  }
+  window.startSnake = function() { resetGame(); state = 'play'; hideOverlay(); acc = 0; updateHud(); };
+  function spawnFood() {
+    var free = [];
+    for (var y = 4; y < 16; y++) for (var x = 4; x < 16; x++) if (!snake.some(s => s.x === x && s.y === y)) free.push({x,y});
+    if (!free.length) for (var y = 0; y < GRID; y++) for (var x = 0; x < GRID; x++) if (!snake.some(s => s.x === x && s.y === y)) free.push({x,y});
+    food = free.length ? free[(Math.random() * free.length) | 0] : {x:0, y:0};
+  }
+  function setDir(d) { var last = queue.length ? queue[queue.length - 1] : dir; if (last.x === -d.x && last.y === -d.y) return; if (last.x === d.x && last.y === d.y) return; if (queue.length < 2) queue.push(d); }
+  function stepSnake() {
+    if (state !== 'play') return; if (queue.length) dir = queue.shift();
+    var head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+    if (head.x < 0 || head.y < 0 || head.x >= GRID || head.y >= GRID) return dieSnake();
+    var grow = (head.x === food.x && head.y === food.y); var body = grow ? snake : snake.slice(0, -1);
+    if (body.some(s => s.x === head.x && s.y === head.y)) return dieSnake();
+    snake.unshift(head);
+    if (grow) { score++; scoreEl.textContent = score; stepMs = Math.max(62, 150 - score * 4); burst((food.x + 0.5) * cell, (food.y + 0.5) * cell, '#ff4d6d', 16); spawnFood(); beep(680, 0.09, 'triangle', 0.05); } else snake.pop();
+  }
+  function dieSnake() { if (state !== 'play') return; state = 'over'; burst((snake[0].x + 0.5) * cell, (snake[0].y + 0.5) * cell, '#ff4d6d', 26); beep(150, 0.45, 'sawtooth', 0.07); sendScoreToServer('snake', score); showScreen('Змейка: Игра окончена', 'Счёт: <b>' + score + '</b>', '<button class="btn primary" onclick="startSnake()">Ещё раз</button><button class="btn" onclick="showGamesMenu()">В меню</button>'); }
+
+  // --- FLAPPY ---
+  window.startFlappy = function() { state = 'flappy'; flappyState = 'ready'; flappyBird.y = px / 2 - 20; flappyBird.vy = 0; flappyPipes = []; flappyScore = 0; hideOverlay(); showScreen('Flappy Bird', 'Нажимай, чтобы лететь', '<button class="btn primary" onclick="flappyPlay()">Погнали!</button>'); };
+  window.flappyPlay = function() { flappyState = 'playing'; hideOverlay(); };
+  function updateFlappy(dt) {
+    if (state !== 'flappy' || flappyState !== 'playing') return;
+    flappyBird.vy += flappyBird.gravity * (dt / 16); flappyBird.y += flappyBird.vy * (dt / 16);
+    if (flappyBird.y < 0) { flappyBird.y = 0; flappyBird.vy = 0; } if (flappyBird.y + flappyBird.size > px) return dieFlappy();
+    if (flappyPipes.length === 0 || flappyPipes[flappyPipes.length - 1].x < px - px * 0.6) { var gap = px * 0.35; var topH = px * 0.1 + Math.random() * (px - gap - px * 0.25); flappyPipes.push({ x: px, topH: topH, passed: false }); }
+    for (var i = flappyPipes.length - 1; i >= 0; i--) {
+      var p = flappyPipes[i]; p.x -= flappySpeed * (dt / 16);
+      if (!p.passed && p.x + px * 0.15 < flappyBird.x) { p.passed = true; flappyScore++; beep(800, 0.05, 'sine', 0.05); }
+      if (p.x + px * 0.15 < 0) { flappyPipes.splice(i, 1); continue; }
+      if (flappyBird.x + flappyBird.size > p.x && flappyBird.x < p.x + px * 0.15) { if (flappyBird.y < p.topH || flappyBird.y + flappyBird.size > p.topH + px * 0.35) return dieFlappy(); }
+    }
+  }
+  function dieFlappy() { flappyState = 'over'; beep(150, 0.4, 'sawtooth', 0.07); sendScoreToServer('flappy', flappyScore); showScreen('Flappy: Игра окончена', 'Счёт: <b>' + flappyScore + '</b>', '<button class="btn primary" onclick="startFlappy()">Ещё раз</button><button class="btn" onclick="showGamesMenu()">В меню</button>'); }
+
+  // --- ТАНКИ ---
+  window.startTanks = function() {
+    state = 'tanks'; tankScore = 0; tankPlayer = { x: Math.round((px/2 - 10) / 10) * 10, y: px - 60, w: 20, h: 20, speed: 120, dir: 'up', cooldown: 0 };
+    tankEnemies = []; tankBullets = []; tankWalls = []; updateHud(); hideOverlay(); tankControls.classList.add('active');
+    var attempts = 0; while (tankWalls.length < 12 && attempts < 300) {
+      var ww = 40, wh = 20; var wx = Math.floor((40 + Math.random() * (px - 100)) / 10) * 10; var wy = Math.floor((40 + Math.random() * (px - 200)) / 10) * 10;
+      var overlapsPlayer = (wx < tankPlayer.x + 50 && wx + ww + 50 > tankPlayer.x && wy < tankPlayer.y + 50 && wy + wh + 50 > tankPlayer.y);
+      var overlapsWall = false; for (var j = 0; j < tankWalls.length; j++) { var ew = tankWalls[j]; if (wx < ew.x + ew.w + 10 && wx + ww + 10 > ew.x && wy < ew.y + ew.h + 10 && wy + wh + 10 > ew.y) { overlapsWall = true; break; } }
+      if (!overlapsWall && !overlapsPlayer) tankWalls.push({ x: wx, y: wy, w: ww, h: wh });
+      attempts++;
+    }
+    spawnTankEnemy();
+  };
+  function canMoveTo(nx, ny, w, h) { if (nx < 0 || nx + w > px || ny < 0 || ny + h > px) return false; for (var wl of tankWalls) { if (nx < wl.x + wl.w && nx + w > wl.x && ny < wl.y + wl.h && ny + h > wl.y) return false; } return true; }
+  function spawnTankEnemy() {
+    var spawnPoints = [{x: 20, y: 20}, {x: px - 40, y: 20}, {x: px/2 - 10, y: 20}, {x: 20, y: px/2}, {x: px - 40, y: px/2}];
+    spawnPoints.sort((a, b) => Math.hypot(b.x - tankPlayer.x, b.y - tankPlayer.y) - Math.hypot(a.x - tankPlayer.x, a.y - tankPlayer.y));
+    for (var i = 0; i < spawnPoints.length; i++) { var sp = spawnPoints[i]; if (canMoveTo(sp.x, sp.y, 20, 20)) { tankEnemies.push({ x: Math.round(sp.x/10)*10, y: Math.round(sp.y/10)*10, w: 20, h: 20, speed: 60, dir: 'down', cooldown: 1.5, nextTurn: 0 }); return; } }
+    tankEnemies.push({ x: 20, y: 20, w: 20, h: 20, speed: 60, dir: 'down', cooldown: 1.5, nextTurn: 0 });
+  }
+  window.tankInput = function(dir, isDown) { tankKeys[dir] = isDown; };
+  window.tankFire = function() {
+    if (state !== 'tanks' || tankPlayer.cooldown > 0) return; tankPlayer.cooldown = 0.4;
+    var cx = tankPlayer.x + tankPlayer.w/2; var cy = tankPlayer.y + tankPlayer.h/2; var vx = 0, vy = 0;
+    if (tankPlayer.dir === 'up') vy = -350; if (tankPlayer.dir === 'down') vy = 350; if (tankPlayer.dir === 'left') vx = -350; if (tankPlayer.dir === 'right') vx = 350;
+    var offset = 6; if (tankPlayer.dir === 'up' || tankPlayer.dir === 'down') { tankBullets.push({ x: cx - offset, y: cy, vx, vy, friendly: true }); tankBullets.push({ x: cx + offset, y: cy, vx, vy, friendly: true }); } else { tankBullets.push({ x: cx, y: cy - offset, vx, vy, friendly: true }); tankBullets.push({ x: cx, y: cy + offset, vx, vy, friendly: true }); }
+    beep(600, 0.05, 'square', 0.05);
+  };
+  function updateTanks(dt) {
+    if (state !== 'tanks') return;
+    var p = tankPlayer; p.cooldown -= dt/1000; var moveDir = null;
+    if (tankKeys.up) moveDir = 'up'; else if (tankKeys.down) moveDir = 'down'; else if (tankKeys.left) moveDir = 'left'; else if (tankKeys.right) moveDir = 'right';
+    if (moveDir) {
+      p.dir = moveDir; var moveSpeed = p.speed * (dt/1000);
+      if (moveDir === 'up' || moveDir === 'down') { p.x = Math.round(p.x / 10) * 10; var ny = p.y + (moveDir === 'up' ? -moveSpeed : moveSpeed); if (canMoveTo(p.x, ny, p.w, p.h)) p.y = ny; } else { p.y = Math.round(p.y / 10) * 10; var nx = p.x + (moveDir === 'left' ? -moveSpeed : moveSpeed); if (canMoveTo(nx, p.y, p.w, p.h)) p.x = nx; }
+    }
+    if (tankEnemies.length === 0) spawnTankEnemy();
+    for (var i = tankEnemies.length - 1; i >= 0; i--) {
+      var e = tankEnemies[i]; e.cooldown -= dt/1000; e.nextTurn -= dt/1000;
+      var dx = p.x - e.x; var dy = p.y - e.y; var eSpeed = e.speed * (dt/1000);
+      var needNewDir = false; var testX = e.x, testY = e.y;
+      if (e.dir === 'up') testY -= eSpeed; if (e.dir === 'down') testY += eSpeed; if (e.dir === 'left') testX -= eSpeed; if (e.dir === 'right') testX += eSpeed;
+      if (!canMoveTo(testX, testY, e.w, e.h)) needNewDir = true; if (e.nextTurn <= 0) needNewDir = true;
+      if (needNewDir) {
+        var prefX = dx > 0 ? 'right' : 'left'; var prefY = dy > 0 ? 'down' : 'up'; var primaryDir = Math.abs(dx) > Math.abs(dy) ? prefX : prefY; var secondaryDir = Math.abs(dx) > Math.abs(dy) ? prefY : prefX;
+        var dirsToTry = [primaryDir, secondaryDir, prefX === 'right' ? 'left' : 'right', prefY === 'down' ? 'up' : 'down'];
+        if (e.dir === 'up' || e.dir === 'down') e.x = Math.round(e.x / 10) * 10; else e.y = Math.round(e.y / 10) * 10;
+        for (var d of dirsToTry) { var tx = e.x, ty = e.y; if (d === 'up') ty -= 15; if (d === 'down') ty += 15; if (d === 'left') tx -= 15; if (d === 'right') tx += 15; if (canMoveTo(tx, ty, e.w, e.h)) { e.dir = d; e.nextTurn = 1.0 + Math.random() * 1.5; break; } }
+      }
+      if (e.dir === 'up' && canMoveTo(e.x, e.y - eSpeed, e.w, e.h)) e.y -= eSpeed; else if (e.dir === 'down' && canMoveTo(e.x, e.y + eSpeed, e.w, e.h)) e.y += eSpeed; else if (e.dir === 'left' && canMoveTo(e.x - eSpeed, e.y, e.w, e.h)) e.x -= eSpeed; else if (e.dir === 'right' && canMoveTo(e.x + eSpeed, e.y, e.w, e.h)) e.x += eSpeed;
+      if (e.cooldown <= 0) { e.cooldown = 2.5; var vx = 0, vy = 0; if (e.dir === 'up') vy = -200; if (e.dir === 'down') vy = 200; if (e.dir === 'left') vx = -200; if (e.dir === 'right') vx = 200; tankBullets.push({ x: e.x + 10, y: e.y + 10, vx, vy, friendly: false }); }
+      if (e.x < p.x + p.w && e.x + e.w > p.x && e.y < p.y + p.h && e.y + e.h > p.y) return dieTanks();
+    }
+    for (var i = tankBullets.length - 1; i >= 0; i--) {
+      var b = tankBullets[i]; b.x += b.vx * (dt/1000); b.y += b.vy * (dt/1000);
+      if (b.x < 0 || b.x > px || b.y < 0 || b.y > px) { tankBullets.splice(i, 1); continue; }
+      var hitW = false; for (var j = tankWalls.length - 1; j >= 0; j--) { var w = tankWalls[j]; if (b.x > w.x && b.x < w.x + w.w && b.y > w.y && b.y < w.y + w.h) { tankWalls.splice(j, 1); hitW = true; beep(200, 0.1, 'sawtooth', 0.02); break; } }
+      if (hitW) { tankBullets.splice(i, 1); continue; }
+      if (b.friendly) { for (var j = tankEnemies.length - 1; j >= 0; j--) { var e = tankEnemies[j]; if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) { tankEnemies.splice(j, 1); tankBullets.splice(i, 1); tankScore++; updateHud(); beep(400, 0.1, 'square', 0.05); break; } } }
+      else { if (b.x > p.x && b.x < p.x + p.w && b.y > p.y && b.y < p.y + p.h) return dieTanks(); }
+    }
+  }
+  function dieTanks() { state = 'over'; beep(150, 0.4, 'sawtooth', 0.07); sendScoreToServer('tanks', tankScore); showScreen('Танчики: Игра окончена', 'Ты уничтожил <b>' + tankScore + '</b> врагов', '<button class="btn primary" onclick="startTanks()">Ещё раз</button><button class="btn" onclick="showGamesMenu()">В меню</button>'); }
+
+  // --- РЕНДЕР ---
+  function burst(x, y, color, count) { for (var i = 0; i < count; i++) { var a = Math.random() * Math.PI * 2, sp = (0.03 + Math.random() * 0.13) * (cell / 20); particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: cell * 0.06, life: 500, max: 700, color }); } }
+  function rrect(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  function draw() {
+    if(!ctx) return;
+    if (bsState === 'placing' || bsState === 'playing' || bsState === 'over') { bsDraw(); return; }
+    if (state === 'tanks') { drawTanks(); return; }
+    ctx.fillStyle = '#0c1224'; ctx.fillRect(0, 0, px, px);
+    if (state === 'flappy') {
+      ctx.fillStyle = '#70c5ce'; ctx.fillRect(0, 0, px, px);
+      var pWidth = px * 0.15; ctx.fillStyle = '#73bf2e'; ctx.strokeStyle = '#558c22'; ctx.lineWidth = 3;
+      for (var i = 0; i < flappyPipes.length; i++) {
+        var p = flappyPipes[i]; ctx.fillRect(p.x, 0, pWidth, p.topH); ctx.strokeRect(p.x, 0, pWidth, p.topH);
+        var botH = px - (p.topH + px * 0.35); ctx.fillRect(p.x, px - botH, pWidth, botH); ctx.strokeRect(p.x, px - botH, pWidth, botH);
+      }
+      ctx.fillStyle = '#fadd44'; ctx.beginPath(); ctx.arc(flappyBird.x + 10, flappyBird.y + 10, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold ' + (px * 0.1) + 'px Arial'; ctx.textAlign = 'center'; ctx.fillText(flappyScore, px / 2, px * 0.1);
+      return;
+    }
+    if (state === 'play' || state === 'over' || state === 'pause') {
+      if (!snake) return;
+      for (var i = snake.length - 1; i >= 0; i--) {
+        var s = snake[i]; var p = snake.length === 1 ? 0 : i / (snake.length - 1);
+        var hue = 152 + p * 48; var light = 62 - p * 16; var pad = cell * 0.09;
+        ctx.fillStyle = 'hsl(' + hue + ',85%,' + light + '%)';
+        if (i === 0) { ctx.shadowColor = 'rgba(70,230,170,.9)'; ctx.shadowBlur = cell * 0.9; } else ctx.shadowBlur = 0;
+        rrect(s.x * cell + pad, s.y * cell + pad, cell - pad * 2, cell - pad * 2, cell * 0.3); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      var h = snake[0]; var hx = (h.x + 0.5) * cell, hy = (h.y + 0.5) * cell;
+      var fx = dir.x * cell * 0.16, fy = dir.y * cell * 0.16; var sx = -dir.y * cell * 0.18, sy = dir.x * cell * 0.18;
+      ctx.fillStyle = '#06281f';
+      for (var sgn = 1; sgn >= -1; sgn -= 2) { ctx.beginPath(); ctx.arc(hx + fx + sx * sgn, hy + fy + sy * sgn, cell * 0.09, 0, Math.PI * 2); ctx.fill(); }
+      var t = performance.now() / 1000; var k = 1 + Math.sin(t * 5) * 0.09;
+      var cx = (food.x + 0.5) * cell, cy = (food.y + 0.5) * cell;
+      ctx.save(); ctx.shadowColor = 'rgba(255,77,109,.95)'; ctx.shadowBlur = cell * 0.9;
+      var g = ctx.createRadialGradient(cx - cell * 0.1, cy - cell * 0.1, cell * 0.04, cx, cy, cell * 0.42);
+      g.addColorStop(0, '#ff9ab0'); g.addColorStop(1, '#ff3d63');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, cell * 0.33 * k, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+  }
+  function drawTanks() {
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, px, px); 
+    ctx.fillStyle = '#8b4513'; for(var w of tankWalls) { ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#5c2d0c'; ctx.lineWidth = 2; ctx.strokeRect(w.x, w.y, w.w, w.h); }
+    for(var e of tankEnemies) { ctx.fillStyle = '#ff3333'; ctx.fillRect(e.x, e.y, e.w, e.h); ctx.fillStyle = '#aa0000'; if(e.dir === 'up') ctx.fillRect(e.x+6, e.y-6, 8, 10); else if(e.dir === 'down') ctx.fillRect(e.x+6, e.y+e.h-4, 8, 10); else if(e.dir === 'left') ctx.fillRect(e.x-6, e.y+6, 10, 8); else if(e.dir === 'right') ctx.fillRect(e.x+e.w-4, e.y+6, 10, 8); }
+    var p = tankPlayer; ctx.fillStyle = '#46e6a0'; ctx.fillRect(p.x, p.y, p.w, p.h); ctx.fillStyle = '#298f62'; if(p.dir === 'up') ctx.fillRect(p.x+6, p.y-6, 8, 10); else if(p.dir === 'down') ctx.fillRect(p.x+6, p.y+p.h-4, 8, 10); else if(p.dir === 'left') ctx.fillRect(p.x-6, p.y+6, 10, 8); else if(p.dir === 'right') ctx.fillRect(p.x+p.w-4, p.y+6, 10, 8);
+    for(var b of tankBullets) { ctx.fillStyle = b.friendly ? '#fff' : '#ff9900'; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill(); }
+  }
+
+  function resize() { if(!canvas) return; var w = Math.min(window.innerWidth - 32, 560); var h = window.innerHeight - 130; px = Math.max(200, Math.floor(Math.min(w, h))); cell = px / GRID; var dpr = Math.min(window.devicePixelRatio || 1, 2); canvas.width = Math.round(px * dpr); canvas.height = Math.round(px * dpr); canvas.style.width = px + 'px'; canvas.style.height = px + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw(); }
+  function loop(t) { if (!lastTime) lastTime = t; var dt = Math.min(100, t - lastTime); lastTime = t; if (state === 'play') { acc += dt; var guard = 0; while (state === 'play' && acc >= stepMs && guard++ < 5) { acc -= stepMs; stepSnake(); } } else if (state === 'flappy') { updateFlappy(dt); } else if (state === 'tanks') { updateTanks(dt); } draw(); requestAnimationFrame(loop); }
+
+  window.addEventListener('keydown', function(e) {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (state === 'tanks') { if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ц') { tankKeys.up = true; e.preventDefault(); } if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'ы') { tankKeys.down = true; e.preventDefault(); } if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ф') { tankKeys.left = true; e.preventDefault(); } if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'в') { tankKeys.right = true; e.preventDefault(); } if (e.key === ' ' || e.key === 'Enter') { tankFire(); e.preventDefault(); } return; }
+    if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); if (state === 'flappy' && flappyState === 'playing') { flappyBird.vy = flappyBird.jump; beep(400, 0.05); } }
+    if (state === 'play') { var map = {ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0}, w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0}}; var k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (map[k]) { e.preventDefault(); setDir(map[k]); } }
+  });
+  window.addEventListener('keyup', function(e) { if (state === 'tanks') { if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ц') tankKeys.up = false; if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'ы') tankKeys.down = false; if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ф') tankKeys.left = false; if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'в') tankKeys.right = false; } });
+
+  var touchStart = null;
+  canvas.addEventListener('touchstart', function(e) {
+    if (state === 'flappy' && flappyState === 'playing') { e.preventDefault(); flappyBird.vy = flappyBird.jump; beep(400, 0.05); return; }
+    if (state === 'play') { var t = e.changedTouches[0]; touchStart = {x: t.clientX, y: t.clientY}; }
+  }, {passive: false});
+
+  canvas.addEventListener('touchmove', function(e) { 
+    if (state !== 'play' || !touchStart) return; e.preventDefault(); var t = e.changedTouches[0]; var dx = t.clientX - touchStart.x; var dy = t.clientY - touchStart.y;
+    if (Math.abs(dx) > 20 || Math.abs(dy) > 20) { if (Math.abs(dx) > Math.abs(dy)) setDir({x: Math.sign(dx), y: 0}); else setDir({x: 0, y: Math.sign(dy)}); touchStart = {x: t.clientX, y: t.clientY}; }
+  }, {passive: false});
+  canvas.addEventListener('touchend', function(e) { touchStart = null; }, {passive: false});
+
+  window.addEventListener('resize', resize);
+
+  window.showStats = function(gameType) {
+    if (!db) { showScreen('Ошибка', 'Нет интернета', '<button class="btn primary" onclick="showRatingsMenu()">⬅️ Назад</button>'); return; }
+    var url = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores/' + gameType + '.json';
+    var gameName = gameType === 'snake' ? 'Змейка' : (gameType === 'flappy' ? 'Flappy' : 'Танчики');
+    showScreen('Рейтинг: ' + gameName, '<div style="color:#8ea6c9;padding:16px">Загрузка...</div>', '<button class="btn primary" onclick="showRatingsMenu()">⬅️ Назад</button>');
+    fetch(url).then(res => res.json()).then(data => {
+        var bestByName = {}; if (data) { for (var key in data) { var entry = data[key]; if (entry && entry.name) { var lowerName = entry.name.toLowerCase(); if (!bestByName[lowerName] || entry.score > bestByName[lowerName].score) bestByName[lowerName] = entry; } } }
+        var list = Object.keys(bestByName).map(k => bestByName[k]); list.sort((a, b) => b.score - a.score);
+        var body = ''; if (list.length === 0) body = '<div style="color:#8ea6c9;padding:16px">Пока пусто</div>';
+        else { var rows = list.map((p, i) => '<tr><td class="num" style="color:#8ea6c9">' + (i + 1) + '</td><td>' + esc(p.name) + (p.name.toLowerCase() === currentPlayer.toLowerCase() ? ' (ты)' : '') + '</td><td class="num" style="color:#46e6a0;font-weight:700;">' + p.score + '</td><td class="num" style="color:#8ea6c9;font-size:11px">' + fmtDate(p.time) + '</td></tr>').join(''); body = '<table class="stats"><thead><tr><th>#</th><th>Игрок</th><th style="text-align:right">Рекорд</th><th style="text-align:right">Когда</th></tr></thead><tbody>' + rows + '</tbody></table>'; }
+        showScreen('Рейтинг: ' + gameName, body, '<button class="btn primary" onclick="showRatingsMenu()">⬅️ Назад</button>');
+      }).catch(err => { showScreen('Ошибка', 'Не удалось загрузить рейтинг.', '<button class="btn primary" onclick="showRatingsMenu()">⬅️ Назад</button>'); });
+  };
+  function sendScoreToServer(gameType, finalScore) { if (!finalScore || !db) return; var url = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores/' + gameType + '/' + deviceId + '.json'; fetch(url).then(res => res.json()).then(ex => { if (!ex || finalScore > ex.score) { fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: currentPlayer, score: finalScore, time: Date.now() }) }); } }).catch(e => {}); }
+
+  window.showAlley = function() { showScreen('🏆 Аллея славы', '<div class="alley"><div class="alley-item dev"><div class="alley-num">1</div><div><div class="alley-name">Владимир</div><div class="alley-sub">(разработчик проекта)</div></div></div><div class="alley-item empty"><div class="alley-num">2</div><div><div class="alley-name">Не занято</div><div class="alley-sub">(чтобы занять обратитесь к разработчику)</div></div></div></div>', '<button class="btn primary" onclick="showOtherMenu()">⬅️ Назад</button>'); };
+  window.showPromo = function() { showScreen('🎁 Промокоды', '<input id="promoInput" class="name-input" maxlength="20" placeholder="Введи промокод"><button type="button" class="btn primary wide" id="btnActivatePromo" style="pointer-events:auto; cursor:pointer;">Активировать</button><div id="promoMsg" style="margin-top:10px; font-weight:bold;"></div>', '<button class="btn ghost" onclick="showOtherMenu()">⬅️ Назад</button>');
+    document.getElementById('btnActivatePromo').addEventListener('pointerdown', window.checkPromo);
+  };
+  window.checkPromo = function() { var input = document.getElementById('promoInput'); var code = input ? input.value.trim() : ''; var msg = document.getElementById('promoMsg'); if (code === 'Админпромокод') { if (!db) { msg.style.color = '#ff4d6d'; msg.textContent = 'Ошибка: нет интернета.'; return; } msg.style.color = '#46e6a0'; msg.textContent = 'Успех! Начисляем 1000 очков...'; var scoreData = { name: currentPlayer, score: 1000, time: Date.now() }; db.ref('scores/snake/' + deviceId).set(scoreData); db.ref('scores/flappy/' + deviceId).set(scoreData); db.ref('scores/tanks/' + deviceId).set(scoreData); setTimeout(() => { msg.textContent = 'Готово! 1000 очков добавлены везде.'; beep(800, 0.2, 'sine', 0.1); setTimeout(() => { showOtherMenu(); }, 1500); }, 500); } else { msg.style.color = '#ff4d6d'; msg.textContent = 'Неверный промокод!'; beep(200, 0.2, 'sawtooth', 0.05); } };
+
+  // --- ИНИЦИАЛИЗАЦИЯ ---
+  resetGame(); updateHud(); resize();
+  if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
+
+  var script1 = document.createElement('script');
+  script1.src = "https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js";
+  script1.onload = function() {
+    var script2 = document.createElement('script');
+    script2.src = "https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js";
+    script2.onload = function() {
+      try {
+        firebase.initializeApp({ databaseURL: "https://vova-snake-420c6-default-rtdb.firebaseio.com" });
+        db = firebase.database();
+      } catch(e) { console.log("Firebase error:", e); }
+    };
+    document.body.appendChild(script2);
+  };
+  document.body.appendChild(script1);
+</script>
+</body>
+</html>
