@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 27)</title>
+<title>Онлайн Flappy Bird — Вова (версия 28)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -116,7 +116,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 27</p>
+    <p id="gateVer">версия 28</p>
   </div>
 </div>
 
@@ -442,8 +442,8 @@
         if (!data) return;
         onlineData = data;
         
+        // Если игра запущена
         if (data.status === 'playing' && onlineState === 'waiting') {
-            // Запускаем обратный отсчет
             onlineState = 'countdown';
             countdownValue = 3.0;
             onlineBirdY = px / 2;
@@ -454,26 +454,27 @@
             onlineTimeElapsed = 0;
             hideOverlay();
         } 
+        // Если игру сбросили
         else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over' || onlineState === 'countdown')) {
             onlineState = 'waiting';
             renderLobbyWaiting();
         }
 
-        if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
-            renderLobbyWaiting();
-        }
-
-        // Если кто-то умер (кто-то первый)
-        if (onlineState === 'playing' && data.status === 'playing') {
+        // Проверяем, не умер ли кто-то (работает независимо от локального статуса)
+        if (data.status === 'playing' && currentScreen !== showOnlineGameOver) {
             var someoneDied = false;
             for (var p in data.players) {
-                if (!data.players[p].alive) someoneDied = true;
+                if (data.players[p].alive === false) someoneDied = true;
             }
             
             if (someoneDied) {
-                onlineState = 'over';
+                onlineState = 'over'; // Останавливаем свою игру
                 showOnlineGameOver(data.players);
             }
+        }
+
+        if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
+            renderLobbyWaiting();
         }
     });
 
@@ -514,7 +515,14 @@
 
     if (pCount >= 2) {
         document.getElementById('btnStartOnline').addEventListener('click', function() {
-          db.ref('rooms/' + onlineRoom).update({ status: 'playing' });
+          // Сбрасываем статусы у ВСЕХ игроков перед стартом
+          var updates = { status: 'playing' };
+          for (var p in onlineData.players) {
+              updates['players/' + p + '/alive'] = true;
+              updates['players/' + p + '/score'] = 0;
+              updates['players/' + p + '/y'] = px / 2;
+          }
+          db.ref('rooms/' + onlineRoom).update(updates);
         });
     }
 
@@ -595,10 +603,11 @@
 
   function dieOnlineFlappy() {
     if (onlineState !== 'playing') return;
-    onlineState = 'over';
+    onlineState = 'over'; // Локально останавливаем физику
     beep(150, 0.4, 'sawtooth', 0.07);
     
     if (onlineRoom) {
+        // Отправляем серверу, что мы мертвы
         db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ 
             alive: false, 
             score: onlineScore,
@@ -616,25 +625,33 @@
         pList.push(playersObj[id]);
     }
     
-    pList.sort(function(a, b) { return b.score - a.score; });
+    // Ищем того, кто выжил
+    var winner = pList.find(p => p.alive === true);
     
-    var winner = pList.find(p => p.alive) || pList[0];
+    // Если оба умерли (одновременно), выбираем по очкам
+    if (!winner) {
+        pList.sort(function(a, b) { return b.score - a.score; });
+        winner = pList[0];
+    }
+
     var iWin = winner.name === currentPlayer;
 
     var title = iWin ? '🏆 Вы победили!' : 'Вы проиграли...';
     var html = '';
     
     if (iWin) {
-        html = 'Вы выжили и принесли победу!<br>Ваш счёт: <b>' + winner.score + '</b> труб<br><br>';
+        html = 'Вы выжили!<br>Ваш счёт: <b>' + winner.score + '</b> труб<br><br>';
     } else {
         html = 'Победитель: <b style="color:#ffd166;font-size:20px;">' + esc(winner.name) + '</b><br>';
         html += 'Его счёт: <b>' + winner.score + '</b> труб<br><br>';
     }
     
     html += '<div style="font-size:14px;color:#8ea6c9;margin-bottom:5px;">Результаты:</div>';
+    // Сортируем для красивого вывода
+    pList.sort(function(a, b) { return b.score - a.score; });
     for (var i=0; i<pList.length; i++) {
-        var scoreText = pList[i].alive ? pList[i].score + ' (Выжил)' : pList[i].score;
-        html += '<div style="margin:4px 0; font-size:16px;">' + (i+1) + '. ' + esc(pList[i].name) + ' — <b>' + scoreText + '</b></div>';
+        var statusText = pList[i].alive ? ' (Выжил)' : '';
+        html += '<div style="margin:4px 0; font-size:16px;">' + (i+1) + '. ' + esc(pList[i].name) + ' — <b>' + pList[i].score + '</b>' + statusText + '</div>';
     }
     
     showScreen(
@@ -644,11 +661,17 @@
     );
     
     document.getElementById('btnReturnRoom').addEventListener('click', function() {
+        // Возвращаемся в лобби
         onlineState = 'waiting';
         currentScreen = renderLobbyWaiting;
-        if (onlineData) onlineData.status = 'waiting'; // Локально сбрасываем
-        if (onlineRoom) db.ref('rooms/' + onlineRoom + '/status').set('waiting'); // Сервер сбрасываем
-        renderLobbyWaiting();
+        
+        // Сбрасываем свой статус на живой для следующей игры
+        if (onlineRoom) {
+            db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: true, score: 0 });
+            db.ref('rooms/' + onlineRoom + '/status').set('waiting');
+        }
+        
+        if (onlineData) renderLobbyWaiting();
     });
   }
 
@@ -920,7 +943,7 @@
     } else if (state === 'flappy') {
       updateFlappy(dt);
     } else if (state === 'online') {
-      updateOnlineFlappy(dt); // Отвечает за отсчет и игру
+      updateOnlineFlappy(dt);
     }
     
     draw();
