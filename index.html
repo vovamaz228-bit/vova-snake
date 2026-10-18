@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 28)</title>
+<title>Игры — Вова (версия 29)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -14,42 +14,6 @@
     display:flex;align-items:center;justify-content:center;min-height:100dvh;
     user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
   }
-  #gate{
-    position:fixed;inset:0;z-index:9999;
-    background:rgba(6,10,20,.94);
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-    display:flex;align-items:center;justify-content:center;padding:20px;
-  }
-  #gateCard{
-    background:rgba(10,16,30,.98);
-    border:1px solid rgba(120,180,255,.35);
-    border-radius:18px;padding:24px;max-width:340px;width:100%;
-    text-align:center;box-shadow:0 20px 60px -20px rgba(40,140,255,.5);
-  }
-  #gateCard h2{margin:0 0 6px;color:#fff;font-size:22px}
-  #gateCard p.sub{color:#8ea6c9;margin:0 0 16px;font-size:13px}
-  .gate-input{
-    width:100%;padding:12px;border-radius:12px;
-    border:1px solid rgba(120,180,255,.35);
-    background:rgba(6,10,20,.9);color:#fff;
-    font-size:18px;text-align:center;outline:none;
-  }
-  .gate-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
-  .gate-input.error{border-color:rgba(255,77,109,.9);animation:shake .3s}
-  @keyframes shake{
-    0%,100%{transform:translateX(0)}
-    25%{transform:translateX(-6px)}
-    75%{transform:translateX(6px)}
-  }
-  #gateBtn{
-    width:100%;margin-top:12px;padding:12px;border-radius:12px;border:none;
-    background:linear-gradient(90deg,#46e6a0,#3aa8ff);
-    color:#06281f;font-size:15px;font-weight:700;cursor:pointer;
-  }
-  #gateBtn:active{transform:scale(.98)}
-  #gateErr{color:#ff4d6d;margin:8px 0 0;font-size:12px;min-height:16px}
-  #gateVer{color:#4d6480;margin:4px 0 0;font-size:11px}
-
   #bg{position:fixed;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
   #bg span{
     font-size:clamp(36px,12vw,150px);font-weight:900;line-height:.92;text-align:center;
@@ -108,18 +72,6 @@
 </head>
 <body>
 
-<div id="gate">
-  <div id="gateCard">
-    <h2>Вход по коду</h2>
-    <p class="sub">Введите код доступа</p>
-    <input id="gateInput" class="gate-input" type="text" inputmode="numeric"
-           autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
-    <button id="gateBtn" type="button">Войти</button>
-    <p id="gateErr"></p>
-    <p id="gateVer">версия 28</p>
-  </div>
-</div>
-
 <div id="bg"><span>Вова<br>разработчик<br>этой игры</span></div>
 
 <div id="wrap">
@@ -139,54 +91,15 @@
 </div>
 
 <script>
-/* ============ ЧАСТЬ 1: КОД ДОСТУПА ============ */
-(function() {
-  var CORRECT = '12345789';
-  var gate = document.getElementById('gate');
-  var input = document.getElementById('gateInput');
-  var btn = document.getElementById('gateBtn');
-  var err = document.getElementById('gateErr');
-
-  function check() {
-    if ((input.value || '').trim() === CORRECT) {
-      gate.style.display = 'none';
-      input.value = '';
-      err.textContent = '';
-      if (typeof window.__gameReady === 'function') window.__gameReady();
-    } else {
-      input.value = '';
-      input.classList.add('error');
-      err.style.color = '#ff4d6d';
-      err.textContent = 'Неверный код';
-      setTimeout(function() {
-        input.classList.remove('error');
-        err.textContent = '';
-      }, 900);
-    }
-  }
-
-  btn.addEventListener('click', check);
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); check(); }
-  });
-
-  window.__showGate = function() {
-    input.value = '';
-    err.textContent = '';
-    gate.style.display = 'flex';
-    setTimeout(function(){ input.focus(); }, 50);
-  };
-})();
-
-/* ============ ЧАСТЬ 2: ИГРА ============ */
 (function() {
   'use strict';
 
+  // --- Инициализация Firebase ---
   var firebaseConfig = { databaseURL: "https://vova-snake-420c6-default-rtdb.firebaseio.com" };
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   var db = firebase.database();
 
-  var GRID = 20;
+  // --- DOM Элементы ---
   var canvas = document.getElementById('c');
   var ctx = canvas.getContext('2d');
   var overlay = document.getElementById('overlay');
@@ -197,6 +110,7 @@
   var bestEl = document.getElementById('best');
   var hudPlayer = document.getElementById('hudPlayer');
 
+  // --- Глобальные переменные ---
   var players = {};
   var currentPlayer = '';
   var state = 'name';
@@ -213,14 +127,17 @@
   var loopStarted = false;
   var lastTime = 0;
 
+  // Змейка
   var snake, dir, queue, food, score, acc, stepMs;
+  
+  // Одиночный Flappy
   var flappyBird = { x: 50, y: 150, vy: 0, gravity: 0.25, jump: -4.5, size: 20 };
   var flappyPipes = [];
   var flappyScore = 0;
   var flappyState = 'ready';
   var flappySpeed = 2;
 
-  // Переменные онлайна
+  // Онлайн Flappy
   var onlineRoom = '';
   var onlineData = null;
   var onlineBirdY = 150;
@@ -234,6 +151,7 @@
   var roomRef = null;
   var countdownValue = 3.0;
 
+  // --- Утилиты ---
   function savePlayers() { try { localStorage.setItem('snake.players.v2', JSON.stringify(players)); } catch (e) {} }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function(c){
@@ -276,31 +194,18 @@
     scoreEl.textContent = score || 0;
   }
 
-  function logout() {
-    if (!confirm('Выйти из аккаунта?')) return;
-    players = {};
-    currentPlayer = '';
-    localStorage.removeItem('snake.players.v2');
-    localStorage.removeItem('snake.lastPlayer.v2');
-    resetGame();
-    score = 0;
-    updateHud();
-    hideOverlay();
-    if (typeof window.__showGate === 'function') window.__showGate();
-    state = 'name';
-  }
-
+  // --- Экраны ---
   function screenName() {
     state = 'name';
     currentScreen = screenName;
     var last = localStorage.getItem('snake.lastPlayer.v2') || '';
     showScreen(
       'Кто играет?',
-      '<p class="menu-hint">Введи имя</p>',
+      '<p style="color:#8ea6c9;font-size:12px;margin:0 0 6px;">Введи имя</p>',
       '<form id="nameForm" style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%">' +
         '<input id="nameInput" class="name-input" maxlength="16" placeholder="Имя" ' +
           'autocomplete="off" autocapitalize="words" value="' + esc(last) + '">' +
-        '<button type="submit" class="btn ghost wide" id="btnMenuName">Меню</button>' +
+        '<button type="submit" class="btn ghost wide">Меню</button>' +
       '</form>'
     );
     document.getElementById('nameForm').addEventListener('submit', function(ev) {
@@ -332,7 +237,7 @@
       'Игрок: <b style="color:#fff">' + esc(currentPlayer) + '</b>',
       '<button class="btn primary" id="btnPlaySnake">Играть (Змейка)</button>' +
       '<button class="btn primary" id="btnPlayFlappy" style="background:linear-gradient(90deg,rgba(255,200,50,.3),rgba(255,100,50,.3));border-color:rgba(255,200,50,.5)">Играть (Flappy)</button>' +
-      '<button class="btn" id="btnPlayOnline" style="background:linear-gradient(90deg,rgba(200,50,255,.3),rgba(100,50,255,.3));border-color:rgba(200,50,255,.5)">🌐 Онлайн Flappy (с другом)</button>' +
+      '<button class="btn" id="btnPlayOnline" style="background:linear-gradient(90deg,rgba(200,50,255,.3),rgba(100,50,255,.3));border-color:rgba(200,50,255,.5)">🌐 Онлайн Flappy</button>' +
       '<button class="btn" id="btnStatsSnake">🌍 Рейтинг Змейки</button>' +
       '<button class="btn" id="btnStatsFlappy">🐦 Рейтинг Flappy</button>' +
       '<button class="btn danger" id="btnLogoutReady">Выйти из аккаунта</button>'
@@ -345,6 +250,21 @@
     document.getElementById('btnLogoutReady').addEventListener('click', logout);
   }
 
+  function logout() {
+    if (!confirm('Выйти из аккаунта?')) return;
+    players = {};
+    currentPlayer = '';
+    localStorage.removeItem('snake.players.v2');
+    localStorage.removeItem('snake.lastPlayer.v2');
+    resetGame();
+    score = 0;
+    updateHud();
+    hideOverlay();
+    state = 'name';
+    screenName();
+  }
+
+  // --- Рейтинги ---
   function showGlobalStats(gameType) {
     var prevState = state;
     var prevScreen = currentScreen;
@@ -404,8 +324,8 @@
     currentScreen = showOnlineLobby;
     showScreen(
       'Онлайн Flappy Bird',
-      'Создай комнату или введи код друга, чтобы играть вместе.',
-      '<input id="roomInput" class="name-input" placeholder="Код комнаты (напр. 1234)" maxlength="6" style="margin-bottom:10px;text-transform:uppercase;">' +
+      'Введи код комнаты, чтобы играть с другом.',
+      '<input id="roomInput" class="name-input" placeholder="Код (напр. 1234)" maxlength="6" style="margin-bottom:10px;text-transform:uppercase;">' +
       '<button class="btn primary" id="btnJoinRoom">Войти в комнату</button>' +
       '<button class="btn ghost" id="btnBackLobby">Назад</button>'
     );
@@ -429,6 +349,7 @@
 
     roomRef = db.ref('rooms/' + onlineRoom);
     
+    // Если мы зашли первыми, ставим ожидание
     roomRef.child('status').set('waiting');
     
     roomRef.child('players/' + deviceId).set({
@@ -437,12 +358,13 @@
     
     roomRef.child('players/' + deviceId).onDisconnect().remove();
 
+    // Слушатель событий WebSocket
     roomRef.on('value', function(snapshot) {
         var data = snapshot.val();
         if (!data) return;
         onlineData = data;
         
-        // Если игра запущена
+        // Если статус сменился на "Играем"
         if (data.status === 'playing' && onlineState === 'waiting') {
             onlineState = 'countdown';
             countdownValue = 3.0;
@@ -454,30 +376,25 @@
             onlineTimeElapsed = 0;
             hideOverlay();
         } 
-        // Если игру сбросили
+        // Если кто-то нажал "Вернуться в комнату" (статус waiting)
         else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over' || onlineState === 'countdown')) {
             onlineState = 'waiting';
+            currentScreen = renderLobbyWaiting;
             renderLobbyWaiting();
         }
-
-        // Проверяем, не умер ли кто-то (работает независимо от локального статуса)
-        if (data.status === 'playing' && currentScreen !== showOnlineGameOver) {
-            var someoneDied = false;
-            for (var p in data.players) {
-                if (data.players[p].alive === false) someoneDied = true;
-            }
-            
-            if (someoneDied) {
-                onlineState = 'over'; // Останавливаем свою игру
-                showOnlineGameOver(data.players);
-            }
+        // Если игра окончена (кто-то умер)
+        else if (data.status === 'gameover' && onlineState !== 'over') {
+            onlineState = 'over';
+            showOnlineGameOver(data.players);
         }
 
+        // Если мы в лобби, обновляем список
         if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
             renderLobbyWaiting();
         }
     });
 
+    // Отправка координат
     if (syncInterval) clearInterval(syncInterval);
     syncInterval = setInterval(function() {
         if (onlineState === 'playing' && onlineRoom) {
@@ -509,13 +426,12 @@
 
     showScreen(
       'Комната: ' + onlineRoom,
-      'Игроков в комнате: <b>' + pCount + '</b><br><br>' + playerList + '<br><span style="font-size:12px;color:#8ea6c9">Ждем начала...</span>',
+      'Игроков: <b>' + pCount + '</b><br><br>' + playerList,
       actions
     );
 
     if (pCount >= 2) {
         document.getElementById('btnStartOnline').addEventListener('click', function() {
-          // Сбрасываем статусы у ВСЕХ игроков перед стартом
           var updates = { status: 'playing' };
           for (var p in onlineData.players) {
               updates['players/' + p + '/alive'] = true;
@@ -525,7 +441,6 @@
           db.ref('rooms/' + onlineRoom).update(updates);
         });
     }
-
     document.getElementById('btnQuitLobby').addEventListener('click', leaveRoom);
   }
 
@@ -554,7 +469,6 @@
     if (onlineState !== 'playing') return;
 
     onlineTimeElapsed += dt; 
-
     onlineBirdVy += 0.25 * (dt / 16);
     onlineBirdY += onlineBirdVy * (dt / 16);
 
@@ -603,16 +517,18 @@
 
   function dieOnlineFlappy() {
     if (onlineState !== 'playing') return;
-    onlineState = 'over'; // Локально останавливаем физику
+    onlineState = 'over';
     beep(150, 0.4, 'sawtooth', 0.07);
     
     if (onlineRoom) {
-        // Отправляем серверу, что мы мертвы
+        // Отправляем, что мы мертвы
         db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ 
             alive: false, 
             score: onlineScore,
             y: px - 20
         });
+        // Меняем глобальный статус комнаты на "gameover"
+        db.ref('rooms/' + onlineRoom + '/status').set('gameover');
     }
   }
 
@@ -620,38 +536,31 @@
     if (currentScreen === showOnlineGameOver) return;
     currentScreen = showOnlineGameOver;
     
-    var pList = [];
+    var myData = playersObj[deviceId];
+    var iAmDead = (myData && myData.alive === false);
+    var myScore = myData ? myData.score : 0;
+
+    var opponentName = '';
+    var opponentScore = 0;
     for (var id in playersObj) {
-        pList.push(playersObj[id]);
-    }
-    
-    // Ищем того, кто выжил
-    var winner = pList.find(p => p.alive === true);
-    
-    // Если оба умерли (одновременно), выбираем по очкам
-    if (!winner) {
-        pList.sort(function(a, b) { return b.score - a.score; });
-        winner = pList[0];
+        if (id !== deviceId) {
+            opponentName = playersObj[id].name;
+            opponentScore = playersObj[id].score;
+        }
     }
 
-    var iWin = winner.name === currentPlayer;
+    var title, html;
 
-    var title = iWin ? '🏆 Вы победили!' : 'Вы проиграли...';
-    var html = '';
-    
-    if (iWin) {
-        html = 'Вы выжили!<br>Ваш счёт: <b>' + winner.score + '</b> труб<br><br>';
+    if (iAmDead) {
+        title = 'Ты проиграл!';
+        html = '<div style="font-size:20px;color:#ff4d6d;font-weight:bold;margin-bottom:10px;">Ты разбился первым</div>' +
+               'Твой результат: <b style="font-size:22px;color:#fff;">' + myScore + '</b> труб<br><br>' +
+               '<div style="font-size:14px;color:#8ea6c9;">Соперник (' + esc(opponentName) + ') набрал: ' + opponentScore + '</div>';
     } else {
-        html = 'Победитель: <b style="color:#ffd166;font-size:20px;">' + esc(winner.name) + '</b><br>';
-        html += 'Его счёт: <b>' + winner.score + '</b> труб<br><br>';
-    }
-    
-    html += '<div style="font-size:14px;color:#8ea6c9;margin-bottom:5px;">Результаты:</div>';
-    // Сортируем для красивого вывода
-    pList.sort(function(a, b) { return b.score - a.score; });
-    for (var i=0; i<pList.length; i++) {
-        var statusText = pList[i].alive ? ' (Выжил)' : '';
-        html += '<div style="margin:4px 0; font-size:16px;">' + (i+1) + '. ' + esc(pList[i].name) + ' — <b>' + pList[i].score + '</b>' + statusText + '</div>';
+        title = 'Ты выиграл!';
+        html = '<div style="font-size:20px;color:#46e6a0;font-weight:bold;margin-bottom:10px;">Ты остался в живых!</div>' +
+               'Твой результат: <b style="font-size:22px;color:#fff;">' + myScore + '</b> труб<br><br>' +
+               '<div style="font-size:14px;color:#8ea6c9;">Проигравший (' + esc(opponentName) + ') набрал: ' + opponentScore + '</div>';
     }
     
     showScreen(
@@ -661,12 +570,11 @@
     );
     
     document.getElementById('btnReturnRoom').addEventListener('click', function() {
-        // Возвращаемся в лобби
         onlineState = 'waiting';
         currentScreen = renderLobbyWaiting;
         
-        // Сбрасываем свой статус на живой для следующей игры
         if (onlineRoom) {
+            // Возвращаем себя в игру для следующего раунда
             db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: true, score: 0 });
             db.ref('rooms/' + onlineRoom + '/status').set('waiting');
         }
@@ -676,118 +584,49 @@
   }
 
   function drawOnlineFlappy() {
-    ctx.fillStyle = '#70c5ce';
-    ctx.fillRect(0, 0, px, px);
-
-    var pWidth = px * 0.15;
-    ctx.fillStyle = '#73bf2e';
-    ctx.strokeStyle = '#558c22';
-    ctx.lineWidth = 3;
+    ctx.fillStyle = '#70c5ce'; ctx.fillRect(0, 0, px, px);
+    var pWidth = px * 0.15; ctx.fillStyle = '#73bf2e'; ctx.strokeStyle = '#558c22'; ctx.lineWidth = 3;
     for (var i = 0; i < onlinePipes.length; i++) {
       var p = onlinePipes[i];
-      ctx.fillRect(p.x, 0, pWidth, p.topH);
-      ctx.strokeRect(p.x, 0, pWidth, p.topH);
-      var botH = px - (p.topH + px * 0.35);
-      ctx.fillRect(p.x, px - botH, pWidth, botH);
-      ctx.strokeRect(p.x, px - botH, pWidth, botH);
+      ctx.fillRect(p.x, 0, pWidth, p.topH); ctx.strokeRect(p.x, 0, pWidth, p.topH);
+      var botH = px - (p.topH + px * 0.35); ctx.fillRect(p.x, px - botH, pWidth, botH); ctx.strokeRect(p.x, px - botH, pWidth, botH);
     }
 
-    // Рисуем друга (Синий)
     if (onlineData && onlineData.players) {
       for (var pid in onlineData.players) {
         if (pid === deviceId) continue;
         var op = onlineData.players[pid];
-        
-        ctx.fillStyle = op.alive ? '#3aa8ff' : '#666';
-        ctx.strokeStyle = op.alive ? '#fff' : '#999';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(50 + 10, op.y + 10, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.fillStyle = op.alive ? '#fff' : '#aaa';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(op.name, 60, op.y - 15);
+        ctx.fillStyle = op.alive ? '#3aa8ff' : '#666'; ctx.strokeStyle = op.alive ? '#fff' : '#999';
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(50 + 10, op.y + 10, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = op.alive ? '#fff' : '#aaa'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.fillText(op.name, 60, op.y - 15);
       }
     }
 
-    // Рисуем себя (Желтый)
     ctx.fillStyle = onlineState === 'playing' ? '#fadd44' : '#888';
     ctx.strokeStyle = onlineState === 'playing' ? '#d4a31d' : '#666';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(50 + 10, onlineBirdY + 10, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(50 + 10, onlineBirdY + 10, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = onlineState === 'playing' ? '#fff' : '#aaa'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.fillText(currentPlayer, 60, onlineBirdY - 15);
 
-    ctx.fillStyle = onlineState === 'playing' ? '#fff' : '#aaa';
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(currentPlayer, 60, onlineBirdY - 15);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.font = 'bold ' + (px * 0.1) + 'px Arial';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.strokeText(onlineScore, px / 2, px * 0.1); ctx.fillText(onlineScore, px / 2, px * 0.1);
 
-    // Счёт
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    ctx.font = 'bold ' + (px * 0.1) + 'px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.strokeText(onlineScore, px / 2, px * 0.1);
-    ctx.fillText(onlineScore, px / 2, px * 0.1);
-
-    // Экран отсчета
     if (onlineState === 'countdown') {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, 0, px, px);
-        
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 5;
-        ctx.font = 'bold ' + (px * 0.25) + 'px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, px, px);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 5; ctx.font = 'bold ' + (px * 0.25) + 'px Arial';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         var txt = countdownValue > 0 ? Math.ceil(countdownValue) : "ЛЕТИ!";
-        ctx.strokeText(txt, px / 2, px / 2);
-        ctx.fillText(txt, px / 2, px / 2);
+        ctx.strokeText(txt, px / 2, px / 2); ctx.fillText(txt, px / 2, px / 2);
     }
   }
 
-  /* ================= ИГРА: ОДИНОЧНЫЕ РЕЖИМЫ ================= */
+  /* ================= ИГРА: ЗМЕЙКА ================= */
   function resetGame() {
     snake = [{x:9,y:10},{x:8,y:10},{x:7,y:10}];
-    dir = {x:1, y:0};
-    queue = [];
-    particles = [];
-    score = 0;
-    stepMs = 150;
-    acc = 0;
-    spawnFood();
+    dir = {x:1, y:0}; queue = []; particles = []; score = 0; stepMs = 150; acc = 0; spawnFood();
   }
 
   function startSnake() {
-    resetGame();
-    state = 'play';
-    hideOverlay();
-    acc = 0;
-    updateHud();
-  }
-
-  function startFlappy() {
-    state = 'flappy';
-    flappyState = 'ready';
-    flappyBird.y = px / 2 - 20;
-    flappyBird.vy = 0;
-    flappyPipes = [];
-    flappyScore = 0;
-    hideOverlay();
-    showScreen('Flappy Bird', 'Нажимай, чтобы лететь', '<button class="btn primary" id="btnFlappyStart">Погнали!</button>');
-    document.getElementById('btnFlappyStart').addEventListener('click', function() {
-      flappyState = 'playing';
-      hideOverlay();
-    });
+    resetGame(); state = 'play'; hideOverlay(); acc = 0; updateHud();
   }
 
   function spawnFood() {
@@ -822,6 +661,28 @@
     } else snake.pop();
   }
 
+  function dieSnake() {
+    if (state !== 'play') return;
+    state = 'over';
+    var h = snake[0];
+    burst((h.x + 0.5) * cell, (h.y + 0.5) * cell, '#ff4d6d', 26);
+    beep(150, 0.45, 'sawtooth', 0.07);
+    sendScoreToServer('snake', score);
+    showScreen('Змейка: Игра окончена', 'Счёт: <b>' + score + '</b>', '<button class="btn primary" id="btnAgain">Ещё раз</button><button class="btn" id="btnMenuOver">Меню</button>');
+    document.getElementById('btnAgain').addEventListener('click', startSnake);
+    document.getElementById('btnMenuOver').addEventListener('click', screenReady);
+  }
+
+  /* ================= ИГРА: ОДИНОЧНЫЙ FLAPPY ================= */
+  function startFlappy() {
+    state = 'flappy'; flappyState = 'ready'; flappyBird.y = px / 2 - 20; flappyBird.vy = 0;
+    flappyPipes = []; flappyScore = 0; hideOverlay();
+    showScreen('Flappy Bird', 'Нажимай, чтобы лететь', '<button class="btn primary" id="btnFlappyStart">Погнали!</button>');
+    document.getElementById('btnFlappyStart').addEventListener('click', function() {
+      flappyState = 'playing'; hideOverlay();
+    });
+  }
+
   function updateFlappy(dt) {
     if (state !== 'flappy' || flappyState !== 'playing') return;
     flappyBird.vy += flappyBird.gravity * (dt / 16);
@@ -845,27 +706,15 @@
     }
   }
 
-  function dieSnake() {
-    if (state !== 'play') return;
-    state = 'over';
-    var h = snake[0];
-    burst((h.x + 0.5) * cell, (h.y + 0.5) * cell, '#ff4d6d', 26);
-    beep(150, 0.45, 'sawtooth', 0.07);
-    sendScoreToServer('snake', score);
-    showScreen('Змейка: Игра окончена', 'Счёт: <b>' + score + '</b>', '<button class="btn primary" id="btnAgain">Ещё раз</button><button class="btn" id="btnMenuOver">Меню</button>');
-    document.getElementById('btnAgain').addEventListener('click', startSnake);
-    document.getElementById('btnMenuOver').addEventListener('click', screenReady);
-  }
-
   function dieFlappy() {
-    flappyState = 'over';
-    beep(150, 0.4, 'sawtooth', 0.07);
+    flappyState = 'over'; beep(150, 0.4, 'sawtooth', 0.07);
     sendScoreToServer('flappy', flappyScore);
     showScreen('Flappy: Игра окончена', 'Счёт: <b>' + flappyScore + '</b>', '<button class="btn primary" id="btnAgainF">Ещё раз</button><button class="btn" id="btnMenuF">Меню</button>');
     document.getElementById('btnAgainF').addEventListener('click', startFlappy);
     document.getElementById('btnMenuF').addEventListener('click', screenReady);
   }
 
+  // --- Вспомогательные функции ---
   function sendScoreToServer(gameType, finalScore) {
     if (!finalScore) return;
     var url = 'https://vova-snake-420c6-default-rtdb.firebaseio.com/scores/' + gameType + '/' + deviceId + '.json';
@@ -887,9 +736,16 @@
     }
   }
 
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   function draw() {
-    ctx.fillStyle = '#0c1224';
-    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = '#0c1224'; ctx.fillRect(0, 0, px, px);
 
     if (state === 'online') {
       if (onlineState === 'playing' || onlineState === 'over' || onlineState === 'countdown') {
@@ -912,12 +768,34 @@
     }
 
     if (state === 'play' || state === 'over' || state === 'pause') {
+      // Отрисовка Змейки
       if (!snake) return;
       for (var i = snake.length - 1; i >= 0; i--) {
-        var s = snake[i]; ctx.fillStyle = i === 0 ? '#46e6a0' : '#298f62';
-        ctx.beginPath(); ctx.arc((s.x + 0.5) * cell, (s.y + 0.5) * cell, cell * 0.4, 0, Math.PI * 2); ctx.fill();
+        var s = snake[i]; var p = snake.length === 1 ? 0 : i / (snake.length - 1);
+        var hue = 152 + p * 48; var light = 62 - p * 16; var pad = cell * 0.09;
+        ctx.fillStyle = 'hsl(' + hue + ',85%,' + light + '%)';
+        if (i === 0) { ctx.shadowColor = 'rgba(70,230,170,.9)'; ctx.shadowBlur = cell * 0.9; }
+        else ctx.shadowBlur = 0;
+        rrect(s.x * cell + pad, s.y * cell + pad, cell - pad * 2, cell - pad * 2, cell * 0.3);
+        ctx.fill();
       }
-      ctx.fillStyle = '#ff4d6d'; ctx.beginPath(); ctx.arc((food.x + 0.5) * cell, (food.y + 0.5) * cell, cell * 0.33, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      var h = snake[0];
+      var hx = (h.x + 0.5) * cell, hy = (h.y + 0.5) * cell;
+      var fx = dir.x * cell * 0.16, fy = dir.y * cell * 0.16;
+      var sx = -dir.y * cell * 0.18, sy = dir.x * cell * 0.18;
+      ctx.fillStyle = '#06281f';
+      for (var sgn = 1; sgn >= -1; sgn -= 2) {
+        ctx.beginPath(); ctx.arc(hx + fx + sx * sgn, hy + fy + sy * sgn, cell * 0.09, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Еда
+      var t = performance.now() / 1000; var k = 1 + Math.sin(t * 5) * 0.09;
+      var cx = (food.x + 0.5) * cell, cy = (food.y + 0.5) * cell;
+      ctx.save(); ctx.shadowColor = 'rgba(255,77,109,.95)'; ctx.shadowBlur = cell * 0.9;
+      var g = ctx.createRadialGradient(cx - cell * 0.1, cy - cell * 0.1, cell * 0.04, cx, cy, cell * 0.42);
+      g.addColorStop(0, '#ff9ab0'); g.addColorStop(1, '#ff3d63');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, cell * 0.33 * k, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
   }
 
@@ -950,6 +828,7 @@
     requestAnimationFrame(loop);
   }
 
+  // Управление
   window.addEventListener('keydown', function(e) {
     if (e.target && e.target.tagName === 'INPUT') return;
     if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') {
@@ -976,15 +855,12 @@
 
   window.addEventListener('resize', resize);
 
+  // Инициализация
   try { players = JSON.parse(localStorage.getItem('snake.players.v2') || '{}') || {}; } catch (e) { players = {}; }
   
-  resetGame(); updateHud(); resize(); screenName();
+  resetGame(); updateHud(); resize(); screenName(); // Сразу на экран имени
 
-  window.__gameReady = function() {
-    if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
-    if (!currentPlayer) screenName();
-    else if (state === 'name' && currentScreen === screenName) screenName();
-  };
+  if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
 })();
 </script>
 </body>
