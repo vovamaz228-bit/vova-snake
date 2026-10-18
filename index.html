@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 63)</title>
+<title>Игры — Вова (версия 64)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -393,7 +393,6 @@
     );
   };
 
-  // Безопасный выход (без confirm)
   window.logoutConfirm = function() {
     showScreen('Выход', 'Ты уверен, что хочешь выйти из аккаунта?<br>Твой рейтинг сохранится.', 
       '<button class="btn danger" onclick="doLogout()">Да, выйти</button>' +
@@ -426,26 +425,17 @@
   };
 
   window.createBSRoom = function() {
-    if (!db) {
-      showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
-      return;
-    }
+    if (!db) { showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
     var code = Math.floor(1000 + Math.random() * 9000).toString();
     bsRoom = 'bs_' + code;
     initBSRoom();
   };
 
   window.joinBSRoom = function() {
-    if (!db) {
-      showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
-      return;
-    }
+    if (!db) { showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
     var input = document.getElementById('bsRoomInput');
     var code = input ? input.value.trim() : '';
-    if (code.length < 4) {
-      showScreen('Ошибка', 'Введи 4-значный код комнаты', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
-      return;
-    }
+    if (code.length < 4) { showScreen('Ошибка', 'Введи 4-значный код комнаты', '<button class="btn primary" onclick="startBSMenu()">Назад</button>'); return; }
     bsRoom = 'bs_' + code;
     initBSRoom();
   };
@@ -481,7 +471,6 @@
         bsView = 'my';
       }
 
-      // Обработка выстрелов (ИСПРАВЛЕНО)
       if (data.shots) {
         for (var key in data.shots) {
           var shot = data.shots[key];
@@ -490,17 +479,13 @@
           var sy = parseInt(parts[1]);
 
           if (shot.by === deviceId) {
-            // Это МОЙ выстрел
             if (bsEnemyGrid[sy][sx] === 0) {
               if (shot.status === 'hit') { bsEnemyGrid[sy][sx] = 2; bsEnemyHits++; beep(600, 0.1, 'square'); }
               else if (shot.status === 'miss') { bsEnemyGrid[sy][sx] = 3; beep(300, 0.1, 'sine'); }
             }
-
-            // Передача хода
-            if (shot.status === 'hit') {
-              bsIsMyTurn = true; // Попал — ход остается
-            } else if (shot.status === 'miss') {
-              bsIsMyTurn = false; // Промахнулся — ход переходит
+            if (shot.status === 'hit') bsIsMyTurn = true;
+            else if (shot.status === 'miss') {
+              bsIsMyTurn = false;
               bsRoomRef.once('value').then(snap => {
                 var d = snap.val(); var pIds = Object.keys(d.players);
                 var otherId = pIds.find(id => id !== deviceId);
@@ -508,7 +493,6 @@
               });
             }
           } else {
-            // Это выстрел ВРАГА
             if (bsMyGrid[sy][sx] === 1) {
               if (shot.status === 'pending') {
                 bsRoomRef.child('shots/' + key).update({ status: 'hit' });
@@ -535,13 +519,15 @@
       if (data.status === 'playing' && bsState === 'placing') {
         bsState = 'playing';
         hideOverlay();
-        bsDraw();
       }
 
       if (bsState === 'playing' && bsEnemyHits >= bsTotalShipCells) {
         bsState = 'over';
         showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" onclick="leaveBS()">В меню</button>');
       }
+      
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Перерисовываем экран при любом изменении в базе
+      if (bsState === 'playing') bsDraw();
     });
     bsDraw();
   }
@@ -639,31 +625,28 @@
     if (bsView === 'my') ctx.fillText('Твои корабли', px/2, 25);
     else ctx.fillText('Поле врага (Стреляй)', px/2, 25);
 
-    // Кнопка внизу (динамическая и с индикатором хода)
     var btnW = 220;
     var btnText = "";
     var btnColor = "";
     
     if (bsView === 'my') {
       btnText = "⚔️ Выбор удара";
-      btnColor = 'rgba(70,230,160,0.4)'; // Зеленая
+      btnColor = 'rgba(70,230,160,0.4)';
     } else {
       if (bsIsMyTurn) {
         btnText = "⚔️ Твой ход! Стреляй";
-        btnColor = 'rgba(70,230,160,0.4)'; // Зеленая
+        btnColor = 'rgba(70,230,160,0.4)';
       } else {
         btnText = "⏳ Ход врага...";
-        btnColor = 'rgba(255,77,109,0.4)'; // Красная
+        btnColor = 'rgba(255,77,109,0.4)';
       }
     }
 
     ctx.fillStyle = btnColor; 
     ctx.fillRect(px/2 - btnW/2, px - 50, btnW, 40);
-    
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.strokeRect(px/2 - btnW/2, px - 50, btnW, 40);
-
     ctx.fillStyle = '#fff'; 
     ctx.fillText(btnText, px/2, px - 22);
   }
