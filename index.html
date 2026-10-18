@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 26)</title>
+<title>Онлайн Flappy Bird — Вова (версия 27)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -116,7 +116,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 26</p>
+    <p id="gateVer">версия 27</p>
   </div>
 </div>
 
@@ -227,11 +227,12 @@
   var onlineBirdVy = 0;
   var onlinePipes = [];
   var onlineScore = 0;
-  var onlineState = 'waiting'; 
+  var onlineState = 'waiting'; // waiting, countdown, playing, over
   var onlinePassedPipes = {};
   var onlineTimeElapsed = 0; 
   var syncInterval = null;
   var roomRef = null;
+  var countdownValue = 3.0;
 
   function savePlayers() { try { localStorage.setItem('snake.players.v2', JSON.stringify(players)); } catch (e) {} }
   function esc(s) {
@@ -442,7 +443,9 @@
         onlineData = data;
         
         if (data.status === 'playing' && onlineState === 'waiting') {
-            onlineState = 'playing';
+            // Запускаем обратный отсчет
+            onlineState = 'countdown';
+            countdownValue = 3.0;
             onlineBirdY = px / 2;
             onlineBirdVy = 0;
             onlineScore = 0;
@@ -451,7 +454,7 @@
             onlineTimeElapsed = 0;
             hideOverlay();
         } 
-        else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over')) {
+        else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over' || onlineState === 'countdown')) {
             onlineState = 'waiting';
             renderLobbyWaiting();
         }
@@ -531,6 +534,15 @@
 
   /* ================= ИГРА: ОНЛАЙН FLAPPY ================= */
   function updateOnlineFlappy(dt) {
+    if (onlineState === 'countdown') {
+        countdownValue -= dt / 1000;
+        if (countdownValue <= 0) {
+            onlineState = 'playing';
+            onlineTimeElapsed = 0;
+        }
+        return;
+    }
+
     if (onlineState !== 'playing') return;
 
     onlineTimeElapsed += dt; 
@@ -583,10 +595,9 @@
 
   function dieOnlineFlappy() {
     if (onlineState !== 'playing') return;
-    onlineState = 'over'; // Мы умерли локально
+    onlineState = 'over';
     beep(150, 0.4, 'sawtooth', 0.07);
     
-    // Отправляем на сервер, что мы мертвы
     if (onlineRoom) {
         db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ 
             alive: false, 
@@ -605,10 +616,8 @@
         pList.push(playersObj[id]);
     }
     
-    // Сортируем по очкам
     pList.sort(function(a, b) { return b.score - a.score; });
     
-    // Победитель - тот, кто жив (или у кого больше очков, если оба умерли)
     var winner = pList.find(p => p.alive) || pList[0];
     var iWin = winner.name === currentPlayer;
 
@@ -616,15 +625,16 @@
     var html = '';
     
     if (iWin) {
-        html = 'Вы выжили и принесли победу!<br>Ваш счёт: <b>' + winner.score + '</b><br><br>';
+        html = 'Вы выжили и принесли победу!<br>Ваш счёт: <b>' + winner.score + '</b> труб<br><br>';
     } else {
         html = 'Победитель: <b style="color:#ffd166;font-size:20px;">' + esc(winner.name) + '</b><br>';
-        html += 'Его счёт: <b>' + winner.score + '</b><br><br>';
+        html += 'Его счёт: <b>' + winner.score + '</b> труб<br><br>';
     }
     
-    html += '<div style="font-size:13px;color:#8ea6c9;margin-bottom:5px;">Все результаты:</div>';
+    html += '<div style="font-size:14px;color:#8ea6c9;margin-bottom:5px;">Результаты:</div>';
     for (var i=0; i<pList.length; i++) {
-        html += '<div style="margin:2px 0;">' + (i+1) + '. ' + esc(pList[i].name) + ' — ' + pList[i].score + '</div>';
+        var scoreText = pList[i].alive ? pList[i].score + ' (Выжил)' : pList[i].score;
+        html += '<div style="margin:4px 0; font-size:16px;">' + (i+1) + '. ' + esc(pList[i].name) + ' — <b>' + scoreText + '</b></div>';
     }
     
     showScreen(
@@ -636,8 +646,9 @@
     document.getElementById('btnReturnRoom').addEventListener('click', function() {
         onlineState = 'waiting';
         currentScreen = renderLobbyWaiting;
-        if (onlineRoom) db.ref('rooms/' + onlineRoom + '/status').set('waiting');
-        if (onlineData) renderLobbyWaiting();
+        if (onlineData) onlineData.status = 'waiting'; // Локально сбрасываем
+        if (onlineRoom) db.ref('rooms/' + onlineRoom + '/status').set('waiting'); // Сервер сбрасываем
+        renderLobbyWaiting();
     });
   }
 
@@ -664,7 +675,7 @@
         if (pid === deviceId) continue;
         var op = onlineData.players[pid];
         
-        ctx.fillStyle = op.alive ? '#3aa8ff' : '#666'; // Если мертв - серый
+        ctx.fillStyle = op.alive ? '#3aa8ff' : '#666';
         ctx.strokeStyle = op.alive ? '#fff' : '#999';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -702,6 +713,23 @@
     ctx.textBaseline = 'top';
     ctx.strokeText(onlineScore, px / 2, px * 0.1);
     ctx.fillText(onlineScore, px / 2, px * 0.1);
+
+    // Экран отсчета
+    if (onlineState === 'countdown') {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, px, px);
+        
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 5;
+        ctx.font = 'bold ' + (px * 0.25) + 'px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        var txt = countdownValue > 0 ? Math.ceil(countdownValue) : "ЛЕТИ!";
+        ctx.strokeText(txt, px / 2, px / 2);
+        ctx.fillText(txt, px / 2, px / 2);
+    }
   }
 
   /* ================= ИГРА: ОДИНОЧНЫЕ РЕЖИМЫ ================= */
@@ -841,7 +869,7 @@
     ctx.fillRect(0, 0, px, px);
 
     if (state === 'online') {
-      if (onlineState === 'playing' || onlineState === 'over') {
+      if (onlineState === 'playing' || onlineState === 'over' || onlineState === 'countdown') {
         drawOnlineFlappy(); 
       }
       return; 
@@ -891,8 +919,8 @@
       while (state === 'play' && acc >= stepMs && guard++ < 5) { acc -= stepMs; stepSnake(); }
     } else if (state === 'flappy') {
       updateFlappy(dt);
-    } else if (state === 'online' && onlineState === 'playing') {
-      updateOnlineFlappy(dt);
+    } else if (state === 'online') {
+      updateOnlineFlappy(dt); // Отвечает за отсчет и игру
     }
     
     draw();
