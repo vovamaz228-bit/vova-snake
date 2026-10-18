@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Онлайн Flappy Bird — Вова (версия 24)</title>
+<title>Онлайн Flappy Bird — Вова (версия 26)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden}
@@ -116,7 +116,7 @@
            autocomplete="off" autocapitalize="off" placeholder="Код" autofocus>
     <button id="gateBtn" type="button">Войти</button>
     <p id="gateErr"></p>
-    <p id="gateVer">версия 24</p>
+    <p id="gateVer">версия 26</p>
   </div>
 </div>
 
@@ -229,7 +229,7 @@
   var onlineScore = 0;
   var onlineState = 'waiting'; 
   var onlinePassedPipes = {};
-  var onlineTimeElapsed = 0; // Вместо Date.now() используем локальный таймер
+  var onlineTimeElapsed = 0; 
   var syncInterval = null;
   var roomRef = null;
 
@@ -448,7 +448,7 @@
             onlineScore = 0;
             onlinePipes = [];
             onlinePassedPipes = {};
-            onlineTimeElapsed = 0; // Сбрасываем таймер при старте
+            onlineTimeElapsed = 0;
             hideOverlay();
         } 
         else if (data.status === 'waiting' && (onlineState === 'playing' || onlineState === 'over')) {
@@ -458,6 +458,19 @@
 
         if (state === 'online' && onlineState === 'waiting' && currentScreen === renderLobbyWaiting) {
             renderLobbyWaiting();
+        }
+
+        // Если кто-то умер (кто-то первый)
+        if (onlineState === 'playing' && data.status === 'playing') {
+            var someoneDied = false;
+            for (var p in data.players) {
+                if (!data.players[p].alive) someoneDied = true;
+            }
+            
+            if (someoneDied) {
+                onlineState = 'over';
+                showOnlineGameOver(data.players);
+            }
         }
     });
 
@@ -520,14 +533,13 @@
   function updateOnlineFlappy(dt) {
     if (onlineState !== 'playing') return;
 
-    onlineTimeElapsed += dt; // Локальный таймер вместо Date.now()
+    onlineTimeElapsed += dt; 
 
     onlineBirdVy += 0.25 * (dt / 16);
     onlineBirdY += onlineBirdVy * (dt / 16);
 
     if (onlineBirdY < 0) { onlineBirdY = 0; onlineBirdVy = 0; }
     if (onlineBirdY + 20 > px) {
-       onlineBirdY = px - 20;
        return dieOnlineFlappy();
     }
 
@@ -571,20 +583,59 @@
 
   function dieOnlineFlappy() {
     if (onlineState !== 'playing') return;
-    onlineState = 'over';
+    onlineState = 'over'; // Мы умерли локально
     beep(150, 0.4, 'sawtooth', 0.07);
     
+    // Отправляем на сервер, что мы мертвы
     if (onlineRoom) {
-        db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ alive: false, score: onlineScore });
+        db.ref('rooms/' + onlineRoom + '/players/' + deviceId).update({ 
+            alive: false, 
+            score: onlineScore,
+            y: px - 20
+        });
     }
+  }
 
+  function showOnlineGameOver(playersObj) {
+    if (currentScreen === showOnlineGameOver) return;
+    currentScreen = showOnlineGameOver;
+    
+    var pList = [];
+    for (var id in playersObj) {
+        pList.push(playersObj[id]);
+    }
+    
+    // Сортируем по очкам
+    pList.sort(function(a, b) { return b.score - a.score; });
+    
+    // Победитель - тот, кто жив (или у кого больше очков, если оба умерли)
+    var winner = pList.find(p => p.alive) || pList[0];
+    var iWin = winner.name === currentPlayer;
+
+    var title = iWin ? '🏆 Вы победили!' : 'Вы проиграли...';
+    var html = '';
+    
+    if (iWin) {
+        html = 'Вы выжили и принесли победу!<br>Ваш счёт: <b>' + winner.score + '</b><br><br>';
+    } else {
+        html = 'Победитель: <b style="color:#ffd166;font-size:20px;">' + esc(winner.name) + '</b><br>';
+        html += 'Его счёт: <b>' + winner.score + '</b><br><br>';
+    }
+    
+    html += '<div style="font-size:13px;color:#8ea6c9;margin-bottom:5px;">Все результаты:</div>';
+    for (var i=0; i<pList.length; i++) {
+        html += '<div style="margin:2px 0;">' + (i+1) + '. ' + esc(pList[i].name) + ' — ' + pList[i].score + '</div>';
+    }
+    
     showScreen(
-      'Вы разбились!',
-      'Ваш счёт: <b>' + onlineScore + '</b><br>Вы вернулись в комнату.',
+      title,
+      html,
       '<button class="btn primary" id="btnReturnRoom">Вернуться в комнату</button>'
     );
+    
     document.getElementById('btnReturnRoom').addEventListener('click', function() {
         onlineState = 'waiting';
+        currentScreen = renderLobbyWaiting;
         if (onlineRoom) db.ref('rooms/' + onlineRoom + '/status').set('waiting');
         if (onlineData) renderLobbyWaiting();
     });
@@ -607,39 +658,37 @@
       ctx.strokeRect(p.x, px - botH, pWidth, botH);
     }
 
-    // Рисуем друга (Синий цвет)
+    // Рисуем друга (Синий)
     if (onlineData && onlineData.players) {
       for (var pid in onlineData.players) {
         if (pid === deviceId) continue;
         var op = onlineData.players[pid];
         
-        ctx.fillStyle = op.alive ? '#3aa8ff' : 'rgba(58,168,255,0.3)'; 
-        ctx.strokeStyle = op.alive ? '#fff' : 'rgba(255,255,255,0.3)';
+        ctx.fillStyle = op.alive ? '#3aa8ff' : '#666'; // Если мертв - серый
+        ctx.strokeStyle = op.alive ? '#fff' : '#999';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(50 + 10, op.y + 10, 10, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Никнейм друга
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = op.alive ? '#fff' : '#aaa';
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(op.name, 60, op.y - 15);
       }
     }
 
-    // Рисуем себя (Желтый цвет)
-    ctx.fillStyle = '#fadd44';
-    ctx.strokeStyle = '#d4a31d';
+    // Рисуем себя (Желтый)
+    ctx.fillStyle = onlineState === 'playing' ? '#fadd44' : '#888';
+    ctx.strokeStyle = onlineState === 'playing' ? '#d4a31d' : '#666';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(50 + 10, onlineBirdY + 10, 10, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Свой никнейм
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = onlineState === 'playing' ? '#fff' : '#aaa';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(currentPlayer, 60, onlineBirdY - 15);
