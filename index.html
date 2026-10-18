@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 66)</title>
+<title>Игры — Вова (версия 67)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -57,7 +57,7 @@
     padding:10px 18px;border-radius:12px;font:inherit;font-size:14px;font-weight:600;
     cursor:pointer;transition:background .15s,border-color .15s,transform .08s;
     pointer-events: auto; width: 100%; max-width: 280px;
-    touch-action: manipulation; /* Убирает задержку клика на телефоне */
+    touch-action: manipulation;
   }
   .btn:active{transform:scale(.97)}
   .btn.primary{background:linear-gradient(90deg,rgba(70,230,160,.3),rgba(58,168,255,.3));border-color:rgba(70,230,160,.5)}
@@ -489,7 +489,6 @@
           '<button class="btn" id="btnBSShuffle">Перемешать</button>'
         );
         bsView = 'my';
-        // Добавляем обработчики pointerdown вместо onclick для мобильных
         document.getElementById('btnBSReady').addEventListener('pointerdown', window.bsReady);
         document.getElementById('btnBSShuffle').addEventListener('pointerdown', function() {
           window.prepareBSShips();
@@ -657,7 +656,7 @@
     if (bsView === 'my') ctx.fillText('Твои корабли', px/2, 25);
     else ctx.fillText('Поле врага (Стреляй)', px/2, 25);
 
-    var btnW = 220;
+    var btnW = 240;
     var btnText = "";
     var btnColor = "";
     
@@ -683,31 +682,41 @@
     ctx.fillText(btnText, px/2, px - 22);
   }
 
+  // УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК КЛИКОВ (И МЫШЬ, И ТАЧ)
+  function handleBSClick(clientX, clientY) {
+    if (bsState !== 'playing') return;
+    var rect = canvas.getBoundingClientRect();
+    var cx = clientX - rect.left, cy = clientY - rect.top;
+
+    var btnW = 240;
+    if (cy > px - 60 && cx > px/2 - btnW/2 && cx < px/2 + btnW/2) { 
+      toggleBSView(); 
+      return; 
+    }
+
+    if (bsIsMyTurn && bsView === 'enemy') {
+      var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
+      var gridX = Math.floor((cx - offsetX) / cSize), gridY = Math.floor((cy - offsetY) / cSize);
+      if (gridX >= 0 && gridX < 10 && gridY >= 0 && gridY < 10) {
+        if (bsEnemyGrid[gridY][gridX] === 0) {
+          var key = gridX + '_' + gridY;
+          bsRoomRef.child('shots/' + key).set({ by: deviceId, status: 'pending' });
+          bsIsMyTurn = false; 
+          bsDraw();
+        }
+      }
+    }
+  }
+
+  canvas.addEventListener('mousedown', function(e) {
+    handleBSClick(e.clientX, e.clientY);
+  });
+
   canvas.addEventListener('touchstart', function(e) {
     if (bsState === 'playing') {
       e.preventDefault();
-      var rect = canvas.getBoundingClientRect();
       var touch = e.changedTouches[0];
-      var cx = touch.clientX - rect.left, cy = touch.clientY - rect.top;
-
-      var btnW = 220;
-      if (cy > px - 60 && cx > px/2 - btnW/2 && cx < px/2 + btnW/2) { 
-        toggleBSView(); 
-        return; 
-      }
-
-      if (bsIsMyTurn && bsView === 'enemy') {
-        var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
-        var gridX = Math.floor((cx - offsetX) / cSize), gridY = Math.floor((cy - offsetY) / cSize);
-        if (gridX >= 0 && gridX < 10 && gridY >= 0 && gridY < 10) {
-          if (bsEnemyGrid[gridY][gridX] === 0) {
-            var key = gridX + '_' + gridY;
-            bsRoomRef.child('shots/' + key).set({ by: deviceId, status: 'pending' });
-            bsIsMyTurn = false; 
-            bsDraw();
-          }
-        }
-      }
+      handleBSClick(touch.clientX, touch.clientY);
     }
   }, {passive: false});
 
