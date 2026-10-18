@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 64)</title>
+<title>Игры — Вова (версия 65)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -458,8 +458,21 @@
 
     bsRoomRef.on('value', function(snap) {
       var data = snap.val();
-      if (!data || !data.players) return;
+      if (!data || !data.players) {
+        if (bsState !== 'menu' && bsState !== 'waiting') {
+           bsState = 'menu';
+           showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" onclick="showGamesMenu()">В меню</button>');
+        }
+        return;
+      }
       var pIds = Object.keys(data.players);
+      
+      // Если игра идет, а игроков меньше 2 (один вышел)
+      if ((bsState === 'playing' || bsState === 'placing') && pIds.length < 2) {
+        bsState = 'menu';
+        showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" onclick="showGamesMenu()">В меню</button>');
+        return;
+      }
       
       if (bsState === 'waiting' && pIds.length === 2) {
         bsState = 'placing';
@@ -526,14 +539,16 @@
         showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" onclick="leaveBS()">В меню</button>');
       }
       
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Перерисовываем экран при любом изменении в базе
       if (bsState === 'playing') bsDraw();
     });
     bsDraw();
   }
 
   window.leaveBS = function() {
-    if (bsRoomRef) { bsRoomRef.off(); bsRoomRef.remove(); }
+    if (bsRoomRef) { 
+      bsRoomRef.child('players/' + deviceId).remove();
+      bsRoomRef.off(); 
+    }
     bsRoom = '';
     bsState = 'menu';
     showGamesMenu();
@@ -651,8 +666,9 @@
     ctx.fillText(btnText, px/2, px - 22);
   }
 
-  window.addEventListener('touchstart', function(e) {
-    if (bsState === 'playing' || bsState === 'placing') {
+  // ИСПРАВЛЕНИЕ: Слушатель вешаем на canvas, а не на window, чтобы не блокировать кнопки в меню
+  canvas.addEventListener('touchstart', function(e) {
+    if (bsState === 'playing') {
       e.preventDefault();
       var rect = canvas.getBoundingClientRect();
       var touch = e.changedTouches[0];
@@ -664,7 +680,7 @@
         return; 
       }
 
-      if (bsState === 'playing' && bsIsMyTurn && bsView === 'enemy') {
+      if (bsIsMyTurn && bsView === 'enemy') {
         var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
         var gridX = Math.floor((cx - offsetX) / cSize), gridY = Math.floor((cy - offsetY) / cSize);
         if (gridX >= 0 && gridX < 10 && gridY >= 0 && gridY < 10) {
