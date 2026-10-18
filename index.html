@@ -2,16 +2,16 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Игры — Вова</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
-body{background:radial-gradient(circle at 50% -10%,#16223f 0%,#080b14 55%,#05070d 100%);color:#e8f1ff;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100dvh;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#05070d;overscroll-behavior:none}
+body{background:radial-gradient(circle at 50% -10%,#16223f 0%,#080b14 55%,#05070d 100%);color:#e8f1ff;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100dvh;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 #bg{position:fixed;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
 #bg span{font-size:clamp(36px,12vw,150px);font-weight:900;line-height:.92;text-align:center;text-transform:uppercase;letter-spacing:.02em;transform:rotate(-12deg);color:rgba(255,255,255,.16);text-shadow:0 0 90px rgba(255,255,255,.14)}
 #startScreen{position:fixed;inset:0;z-index:9999;background:#05070d;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
-#wrap{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:16px;align-items:center;max-width:100vw}
-#hud{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8ea6c9}
+#wrap{position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;padding:10px;align-items:center;max-width:100vw}
+#hud{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8ea6c9;min-height:20px}
 #hud b{color:#fff;font-weight:700;font-size:15px;letter-spacing:0}
 #hudPlayer{color:#46e6a0;font-weight:700;font-size:13px;letter-spacing:0;text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%}
 #stage{position:relative;line-height:0}
@@ -46,14 +46,21 @@ canvas{display:block;border-radius:18px;touch-action:none;box-shadow:0 0 0 1px r
 #tank-controls{position:absolute;inset:0;pointer-events:none;display:none;z-index:5}
 #tank-controls.active{display:block}
 .d-pad{position:absolute;bottom:20px;left:20px;display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px);gap:5px;pointer-events:auto}
-.d-pad button{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:10px;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none}
-.d-pad button:active{background:rgba(255,255,255,0.5)}
+.d-pad button{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);border-radius:10px;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none}
+.d-pad button:active{background:rgba(255,255,255,0.45)}
 .d-pad .up{grid-column:2;grid-row:1}
 .d-pad .left{grid-column:1;grid-row:2}
 .d-pad .right{grid-column:3;grid-row:2}
 .d-pad .down{grid-column:2;grid-row:3}
-#fire-btn{position:absolute;bottom:40px;right:30px;width:80px;height:80px;border-radius:50%;background:rgba(255,77,109,0.3);border:2px solid rgba(255,77,109,0.6);color:#fff;font-size:16px;font-weight:bold;pointer-events:auto;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none}
-#fire-btn:active{background:rgba(255,77,109,0.7)}
+#fire-btn{position:absolute;bottom:40px;right:30px;width:80px;height:80px;border-radius:50%;background:rgba(255,77,109,0.25);border:2px solid rgba(255,77,109,0.55);color:#fff;font-size:15px;font-weight:bold;pointer-events:auto;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none}
+#fire-btn:active{background:rgba(255,77,109,0.6)}
+@media (max-width:640px){
+  #wrap{padding:6px;gap:6px}
+  #hud{font-size:10px}
+  .d-pad{grid-template-columns:repeat(3,42px);grid-template-rows:repeat(3,42px);gap:3px;bottom:10px;left:10px}
+  .d-pad button{font-size:17px;background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.28)}
+  #fire-btn{width:64px;height:64px;bottom:16px;right:12px;font-size:12px;background:rgba(255,77,109,0.22);border-color:rgba(255,77,109,0.5)}
+}
 </style>
 </head>
 <body>
@@ -79,10 +86,10 @@ canvas{display:block;border-radius:18px;touch-action:none;box-shadow:0 0 0 1px r
     <canvas id="c" style="display:none;"></canvas>
     <div id="tank-controls">
       <div class="d-pad">
-        <button class="up" onpointerdown="event.preventDefault();tankInput('up',true)" onpointerup="tankInput('up',false)" onpointerleave="tankInput('up',false)">▲</button>
-        <button class="left" onpointerdown="event.preventDefault();tankInput('left',true)" onpointerup="tankInput('left',false)" onpointerleave="tankInput('left',false)">◀</button>
-        <button class="right" onpointerdown="event.preventDefault();tankInput('right',true)" onpointerup="tankInput('right',false)" onpointerleave="tankInput('right',false)">▶</button>
-        <button class="down" onpointerdown="event.preventDefault();tankInput('down',true)" onpointerup="tankInput('down',false)" onpointerleave="tankInput('down',false)">▼</button>
+        <button class="up" onpointerdown="event.preventDefault();tankInput('up',true)" onpointerup="tankInput('up',false)" onpointerleave="tankInput('up',false)" onpointercancel="tankInput('up',false)">▲</button>
+        <button class="left" onpointerdown="event.preventDefault();tankInput('left',true)" onpointerup="tankInput('left',false)" onpointerleave="tankInput('left',false)" onpointercancel="tankInput('left',false)">◀</button>
+        <button class="right" onpointerdown="event.preventDefault();tankInput('right',true)" onpointerup="tankInput('right',false)" onpointerleave="tankInput('right',false)" onpointercancel="tankInput('right',false)">▶</button>
+        <button class="down" onpointerdown="event.preventDefault();tankInput('down',true)" onpointerup="tankInput('down',false)" onpointerleave="tankInput('down',false)" onpointercancel="tankInput('down',false)">▼</button>
       </div>
       <button id="fire-btn" onpointerdown="event.preventDefault();tankFire()">ОГОНЬ</button>
     </div>
@@ -328,6 +335,7 @@ window.startTanks=function(){
     if(!overlapsWall&&!overlapsPlayer)tankWalls.push({x:wx,y:wy,w:ww,h:wh});
     attempts++;
   }
+  resize();
   spawnTankEnemy();
 };
 
@@ -395,16 +403,16 @@ function updateTanks(dt){
 
   if(tankEnemies.length===0)spawnTankEnemy();
 
-  // ====== НОВЫЙ ИИ: активно охотится и стреляет прицельно ======
+  // ====== ИИ: строго 4 направления (движение и стрельба) ======
   for(var i=tankEnemies.length-1;i>=0;i--){
     var e=tankEnemies[i];
     e.cooldown-=dt/1000;
     var dx=(p.x+p.w/2)-(e.x+e.w/2);
     var dy=(p.y+p.h/2)-(e.y+e.h/2);
-    var dist=Math.hypot(dx,dy)||1;
+    var ax=Math.abs(dx), ay=Math.abs(dy);
     var eSpeed=e.speed*(dt/1000);
 
-    // Проверка прямой видимости (нет стен на линии огня)
+    // LOS: прямая видимость до игрока (для темпа стрельбы)
     var hasLOS=true;
     var steps=12;
     for(var s=1;s<steps;s++){
@@ -417,22 +425,25 @@ function updateTanks(dt){
       if(!hasLOS)break;
     }
 
-    // СТРЕЛЬБА — прицельно в игрока
-    if(e.cooldown<=0){
-      var vx=(dx/dist)*280;
-      var vy=(dy/dist)*280;
-      tankBullets.push({x:e.x+e.w/2,y:e.y+e.h/2,vx,vy,friendly:false});
-      beep(350,0.05,'square',0.025);
-      // Видит — стреляет чаще; не видит — реже
-      e.cooldown=hasLOS?(0.8+Math.random()*0.4):(1.5+Math.random()*0.7);
+    // Определяем ось с большим отклонением — это «главная» цель для прицела
+    var primary, secondary;
+    if(ax>=ay){
+      primary = dx>0?'right':'left';
+      secondary = dy>0?'down':'up';
+    }else{
+      primary = dy>0?'down':'up';
+      secondary = dx>0?'right':'left';
     }
+    e.dir = primary;
 
-    // ДВИЖЕНИЕ — всегда сокращаем дистанцию до игрока
-    var aimX=dx>0?'right':'left';
-    var aimY=dy>0?'down':'up';
-    var primary=Math.abs(dx)>Math.abs(dy)?aimX:aimY;
-    var secondary=Math.abs(dx)>Math.abs(dy)?aimY:aimX;
-    var tryDirs=[primary,secondary,aimX,aimY];
+    // ДВИЖЕНИЕ: пробуем главное направление, потом вторичное, потом разворот
+    var moved=false;
+    var tryDirs=[primary,secondary];
+    if(primary==='right')tryDirs.push('left');
+    else if(primary==='left')tryDirs.push('right');
+    else if(primary==='up')tryDirs.push('down');
+    else if(primary==='down')tryDirs.push('up');
+
     for(var d of tryDirs){
       var nx=e.x,ny=e.y;
       if(d==='up')ny-=eSpeed;
@@ -440,12 +451,22 @@ function updateTanks(dt){
       else if(d==='left')nx-=eSpeed;
       else if(d==='right')nx+=eSpeed;
       if(canMoveTo(nx,ny,e.w,e.h)){
-        e.x=nx;e.y=ny;e.dir=d;
-        break;
+        e.x=nx;e.y=ny;e.dir=d;moved=true;break;
       }
     }
 
-    // Столкновение с игроком — смерть
+    // СТРЕЛЬБА: только по 4 направлениям, в сторону игрока (по главной оси)
+    if(e.cooldown<=0){
+      var vx=0,vy=0;
+      if(e.dir==='up')vy=-300;
+      else if(e.dir==='down')vy=300;
+      else if(e.dir==='left')vx=-300;
+      else if(e.dir==='right')vx=300;
+      tankBullets.push({x:e.x+e.w/2,y:e.y+e.h/2,vx,vy,friendly:false});
+      beep(350,0.05,'square',0.025);
+      e.cooldown=hasLOS?(0.9+Math.random()*0.4):(1.6+Math.random()*0.8);
+    }
+
     if(e.x<p.x+p.w&&e.x+e.w>p.x&&e.y<p.y+p.h&&e.y+e.h>p.y)return dieTanks();
   }
   // ====== КОНЕЦ ИИ ======
@@ -571,18 +592,28 @@ function drawTanks(){
   }
 }
 
+var resizeTimer=null;
 function resize(){
   if(!canvas)return;
-  var w=Math.min(window.innerWidth-32,560);
-  var h=window.innerHeight-130;
-  px=Math.max(200,Math.floor(Math.min(w,h)));
-  cell=px/GRID;
-  var dpr=Math.min(window.devicePixelRatio||1,2);
-  canvas.width=Math.round(px*dpr);canvas.height=Math.round(px*dpr);
-  canvas.style.width=px+'px';canvas.style.height=px+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var vw = window.innerWidth;
+  var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  var w = Math.min(vw - 24, 560);
+  var h = vh - 130;
+  var newPx = Math.max(220, Math.floor(Math.min(w, h)));
+  cell = newPx / GRID;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  px = newPx;
+  canvas.width = Math.round(px * dpr);
+  canvas.height = Math.round(px * dpr);
+  canvas.style.width = px + 'px';
+  canvas.style.height = px + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   draw();
 }
+function scheduleResize(){clearTimeout(resizeTimer);resizeTimer=setTimeout(resize,120)}
+window.addEventListener('resize',scheduleResize);
+window.addEventListener('orientationchange',scheduleResize);
+if(window.visualViewport){window.visualViewport.addEventListener('resize',scheduleResize);window.visualViewport.addEventListener('scroll',scheduleResize)}
 
 function loop(t){
   if(!lastTime)lastTime=t;
@@ -645,8 +676,6 @@ canvas.addEventListener('touchmove',function(e){
 },{passive:false});
 
 canvas.addEventListener('touchend',function(e){touchStart=null},{passive:false});
-
-window.addEventListener('resize',resize);
 
 // ========== РЕЙТИНГИ ==========
 window.showStats=function(gameType){
