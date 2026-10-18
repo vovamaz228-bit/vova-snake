@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 60)</title>
+<title>Игры — Вова (версия 63)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -388,13 +388,20 @@
     showScreen('⚙️ Другое', 'Дополнительные настройки:',
       '<button class="btn" onclick="showAlley()" style="background:linear-gradient(90deg,rgba(255,215,0,.2),rgba(255,140,0,.2));border-color:rgba(255,215,0,.5)">🏆 Аллея славы</button>' +
       '<button class="btn" onclick="showPromo()" style="background:linear-gradient(90deg,rgba(255,0,255,.2),rgba(0,255,255,.2));border-color:rgba(255,0,255,.5)">🎁 Промокоды</button>' +
-      '<button class="btn danger" onclick="logout()">🚪 Выйти из аккаунта</button>' +
+      '<button class="btn danger" onclick="logoutConfirm()">🚪 Выйти из аккаунта</button>' +
       '<button class="btn ghost" onclick="screenReady()">⬅️ Назад</button>'
     );
   };
 
-  window.logout = function() {
-    if (!confirm('Выйти из аккаунта?')) return;
+  // Безопасный выход (без confirm)
+  window.logoutConfirm = function() {
+    showScreen('Выход', 'Ты уверен, что хочешь выйти из аккаунта?<br>Твой рейтинг сохранится.', 
+      '<button class="btn danger" onclick="doLogout()">Да, выйти</button>' +
+      '<button class="btn ghost" onclick="showOtherMenu()">Отмена</button>'
+    );
+  };
+
+  window.doLogout = function() {
     currentPlayer = '';
     players = {};
     deviceId = physicalDeviceId;
@@ -419,17 +426,26 @@
   };
 
   window.createBSRoom = function() {
-    if (!db) return alert('Нет интернета (Firebase)');
+    if (!db) {
+      showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
+      return;
+    }
     var code = Math.floor(1000 + Math.random() * 9000).toString();
     bsRoom = 'bs_' + code;
     initBSRoom();
   };
 
   window.joinBSRoom = function() {
-    if (!db) return alert('Нет интернета (Firebase)');
+    if (!db) {
+      showScreen('Ошибка', 'Нет интернета (Firebase)', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
+      return;
+    }
     var input = document.getElementById('bsRoomInput');
     var code = input ? input.value.trim() : '';
-    if (code.length < 4) return alert('Введи 4-значный код');
+    if (code.length < 4) {
+      showScreen('Ошибка', 'Введи 4-значный код комнаты', '<button class="btn primary" onclick="startBSMenu()">Назад</button>');
+      return;
+    }
     bsRoom = 'bs_' + code;
     initBSRoom();
   };
@@ -449,7 +465,6 @@
     bsRoomRef.child('players/' + deviceId).onDisconnect().remove();
 
     showScreen('Комната: ' + bsRoom.replace('bs_', ''), 'Ожидание второго игрока...', '<button class="btn danger" onclick="leaveBS()">Выйти</button>');
-    overlay.classList.add('show');
 
     bsRoomRef.on('value', function(snap) {
       var data = snap.val();
@@ -464,9 +479,9 @@
           '<button class="btn" onclick="prepareBSShips(); bsDraw();">Перемешать</button>'
         );
         bsView = 'my';
-        hideOverlay();
       }
 
+      // Обработка выстрелов (ИСПРАВЛЕНО)
       if (data.shots) {
         for (var key in data.shots) {
           var shot = data.shots[key];
@@ -475,11 +490,25 @@
           var sy = parseInt(parts[1]);
 
           if (shot.by === deviceId) {
+            // Это МОЙ выстрел
             if (bsEnemyGrid[sy][sx] === 0) {
               if (shot.status === 'hit') { bsEnemyGrid[sy][sx] = 2; bsEnemyHits++; beep(600, 0.1, 'square'); }
               else if (shot.status === 'miss') { bsEnemyGrid[sy][sx] = 3; beep(300, 0.1, 'sine'); }
             }
+
+            // Передача хода
+            if (shot.status === 'hit') {
+              bsIsMyTurn = true; // Попал — ход остается
+            } else if (shot.status === 'miss') {
+              bsIsMyTurn = false; // Промахнулся — ход переходит
+              bsRoomRef.once('value').then(snap => {
+                var d = snap.val(); var pIds = Object.keys(d.players);
+                var otherId = pIds.find(id => id !== deviceId);
+                if (d.turn !== otherId) bsRoomRef.update({ turn: otherId });
+              });
+            }
           } else {
+            // Это выстрел ВРАГА
             if (bsMyGrid[sy][sx] === 1) {
               if (shot.status === 'pending') {
                 bsRoomRef.child('shots/' + key).update({ status: 'hit' });
@@ -501,11 +530,6 @@
 
       if (bsState === 'playing') {
         bsIsMyTurn = (data.turn === deviceId);
-        if (bsIsMyTurn && bsView === 'enemy') {
-          ovTitle.textContent = 'Твой ход!'; ovTitle.style.color = '#46e6a0';
-        } else if (!bsIsMyTurn && bsView === 'enemy') {
-          ovTitle.textContent = 'Ход врага...'; ovTitle.style.color = '#ff4d6d';
-        }
       }
 
       if (data.status === 'playing' && bsState === 'placing') {
@@ -615,8 +639,33 @@
     if (bsView === 'my') ctx.fillText('Твои корабли', px/2, 25);
     else ctx.fillText('Поле врага (Стреляй)', px/2, 25);
 
-    ctx.fillStyle = 'rgba(70,140,255,0.3)'; ctx.fillRect(px/2 - 80, px - 50, 160, 40);
-    ctx.fillStyle = '#fff'; ctx.fillText('Сменить вид', px/2, px - 25);
+    // Кнопка внизу (динамическая и с индикатором хода)
+    var btnW = 220;
+    var btnText = "";
+    var btnColor = "";
+    
+    if (bsView === 'my') {
+      btnText = "⚔️ Выбор удара";
+      btnColor = 'rgba(70,230,160,0.4)'; // Зеленая
+    } else {
+      if (bsIsMyTurn) {
+        btnText = "⚔️ Твой ход! Стреляй";
+        btnColor = 'rgba(70,230,160,0.4)'; // Зеленая
+      } else {
+        btnText = "⏳ Ход врага...";
+        btnColor = 'rgba(255,77,109,0.4)'; // Красная
+      }
+    }
+
+    ctx.fillStyle = btnColor; 
+    ctx.fillRect(px/2 - btnW/2, px - 50, btnW, 40);
+    
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px/2 - btnW/2, px - 50, btnW, 40);
+
+    ctx.fillStyle = '#fff'; 
+    ctx.fillText(btnText, px/2, px - 22);
   }
 
   window.addEventListener('touchstart', function(e) {
@@ -626,7 +675,11 @@
       var touch = e.changedTouches[0];
       var cx = touch.clientX - rect.left, cy = touch.clientY - rect.top;
 
-      if (cy > px - 60 && cx > px/2 - 80 && cx < px/2 + 80) { toggleBSView(); return; }
+      var btnW = 220;
+      if (cy > px - 60 && cx > px/2 - btnW/2 && cx < px/2 + btnW/2) { 
+        toggleBSView(); 
+        return; 
+      }
 
       if (bsState === 'playing' && bsIsMyTurn && bsView === 'enemy') {
         var cSize = 36, offsetX = (px - (cSize * 10)) / 2, offsetY = 40;
@@ -635,12 +688,8 @@
           if (bsEnemyGrid[gridY][gridX] === 0) {
             var key = gridX + '_' + gridY;
             bsRoomRef.child('shots/' + key).set({ by: deviceId, status: 'pending' });
-            bsRoomRef.once('value').then(snap => {
-              var data = snap.val(); var pIds = Object.keys(data.players);
-              var otherId = pIds.find(id => id !== deviceId);
-              bsRoomRef.update({ turn: otherId });
-            });
-            bsIsMyTurn = false; bsDraw();
+            bsIsMyTurn = false; 
+            bsDraw();
           }
         }
       }
