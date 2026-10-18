@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Игры — Вова (версия 65)</title>
+<title>Игры — Вова (версия 66)</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
@@ -57,6 +57,7 @@
     padding:10px 18px;border-radius:12px;font:inherit;font-size:14px;font-weight:600;
     cursor:pointer;transition:background .15s,border-color .15s,transform .08s;
     pointer-events: auto; width: 100%; max-width: 280px;
+    touch-action: manipulation; /* Убирает задержку клика на телефоне */
   }
   .btn:active{transform:scale(.97)}
   .btn.primary{background:linear-gradient(90deg,rgba(70,230,160,.3),rgba(58,168,255,.3));border-color:rgba(70,230,160,.5)}
@@ -67,7 +68,7 @@
     width:100%;max-width:260px;padding:12px 14px;border-radius:12px;
     border:1px solid rgba(120,180,255,.35);background:rgba(10,16,30,.85);
     color:#fff;font:inherit;font-size:16px;text-align:center;outline:none;
-    margin-bottom: 10px;
+    margin-bottom: 10px; touch-action: manipulation;
   }
   .name-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
   
@@ -395,9 +396,11 @@
 
   window.logoutConfirm = function() {
     showScreen('Выход', 'Ты уверен, что хочешь выйти из аккаунта?<br>Твой рейтинг сохранится.', 
-      '<button class="btn danger" onclick="doLogout()">Да, выйти</button>' +
-      '<button class="btn ghost" onclick="showOtherMenu()">Отмена</button>'
+      '<button class="btn danger" id="btnYesLogout">Да, выйти</button>' +
+      '<button class="btn ghost" id="btnCancelLogout">Отмена</button>'
     );
+    document.getElementById('btnYesLogout').addEventListener('pointerdown', window.doLogout);
+    document.getElementById('btnCancelLogout').addEventListener('pointerdown', window.showOtherMenu);
   };
 
   window.doLogout = function() {
@@ -418,10 +421,12 @@
     state = 'bs_menu';
     showScreen('🚢 Морской бой', 'Создай комнату или введи код друга:',
       '<input id="bsRoomInput" class="name-input" maxlength="6" placeholder="Код комнаты" style="text-transform:uppercase;">' +
-      '<button class="btn primary" onclick="createBSRoom()">Создать комнату</button>' +
-      '<button class="btn" onclick="joinBSRoom()">Войти по коду</button>' +
+      '<button class="btn primary" id="btnCreateBS">Создать комнату</button>' +
+      '<button class="btn" id="btnJoinBS">Войти по коду</button>' +
       '<button class="btn ghost" onclick="showGamesMenu()">⬅️ Назад</button>'
     );
+    document.getElementById('btnCreateBS').addEventListener('pointerdown', window.createBSRoom);
+    document.getElementById('btnJoinBS').addEventListener('pointerdown', window.joinBSRoom);
   };
 
   window.createBSRoom = function() {
@@ -454,23 +459,25 @@
     bsRoomRef.child('players/' + deviceId).update({ name: currentPlayer, ready: false });
     bsRoomRef.child('players/' + deviceId).onDisconnect().remove();
 
-    showScreen('Комната: ' + bsRoom.replace('bs_', ''), 'Ожидание второго игрока...', '<button class="btn danger" onclick="leaveBS()">Выйти</button>');
+    showScreen('Комната: ' + bsRoom.replace('bs_', ''), 'Ожидание второго игрока...', '<button class="btn danger" id="btnLeaveBS1">Выйти</button>');
+    document.getElementById('btnLeaveBS1').addEventListener('pointerdown', window.leaveBS);
 
     bsRoomRef.on('value', function(snap) {
       var data = snap.val();
       if (!data || !data.players) {
         if (bsState !== 'menu' && bsState !== 'waiting') {
            bsState = 'menu';
-           showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" onclick="showGamesMenu()">В меню</button>');
+           showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" id="btnBackMenu1">В меню</button>');
+           document.getElementById('btnBackMenu1').addEventListener('pointerdown', window.showGamesMenu);
         }
         return;
       }
       var pIds = Object.keys(data.players);
       
-      // Если игра идет, а игроков меньше 2 (один вышел)
       if ((bsState === 'playing' || bsState === 'placing') && pIds.length < 2) {
         bsState = 'menu';
-        showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" onclick="showGamesMenu()">В меню</button>');
+        showScreen('Игра окончена', 'Соперник покинул игру.', '<button class="btn primary" id="btnBackMenu2">В меню</button>');
+        document.getElementById('btnBackMenu2').addEventListener('pointerdown', window.showGamesMenu);
         return;
       }
       
@@ -478,10 +485,16 @@
         bsState = 'placing';
         prepareBSShips();
         showScreen('Расстановка', 'Твои корабли готовы.<br>Нажми кнопку, чтобы начать.', 
-          '<button class="btn primary" onclick="bsReady()">Готов</button>' +
-          '<button class="btn" onclick="prepareBSShips(); bsDraw();">Перемешать</button>'
+          '<button class="btn primary" id="btnBSReady">Готов</button>' +
+          '<button class="btn" id="btnBSShuffle">Перемешать</button>'
         );
         bsView = 'my';
+        // Добавляем обработчики pointerdown вместо onclick для мобильных
+        document.getElementById('btnBSReady').addEventListener('pointerdown', window.bsReady);
+        document.getElementById('btnBSShuffle').addEventListener('pointerdown', function() {
+          window.prepareBSShips();
+          window.bsDraw();
+        });
       }
 
       if (data.shots) {
@@ -536,7 +549,8 @@
 
       if (bsState === 'playing' && bsEnemyHits >= bsTotalShipCells) {
         bsState = 'over';
-        showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" onclick="leaveBS()">В меню</button>');
+        showScreen('🏆 Победа!', 'Вы потопили весь флот врага!', '<button class="btn primary" id="btnLeaveWin">В меню</button>');
+        document.getElementById('btnLeaveWin').addEventListener('pointerdown', window.leaveBS);
       }
       
       if (bsState === 'playing') bsDraw();
@@ -557,7 +571,8 @@
   function checkBSDeath() {
     if (bsMyHits >= bsTotalShipCells && bsState === 'playing') {
       bsState = 'over';
-      showScreen('💀 Поражение', 'Ваш флот потоплен...', '<button class="btn danger" onclick="leaveBS()">В меню</button>');
+      showScreen('💀 Поражение', 'Ваш флот потоплен...', '<button class="btn danger" id="btnLeaveLose">В меню</button>');
+      document.getElementById('btnLeaveLose').addEventListener('pointerdown', window.leaveBS);
     }
   }
 
@@ -595,7 +610,9 @@
   window.bsReady = function() {
     if (!bsRoomRef) return;
     bsRoomRef.child('players/' + deviceId).update({ ready: true });
-    showScreen('Ожидание', 'Ждем второго игрока...', '<button class="btn danger" onclick="leaveBS()">Выйти</button>');
+    showScreen('Ожидание', 'Ждем второго игрока...', '<button class="btn danger" id="btnLeaveWait">Выйти</button>');
+    document.getElementById('btnLeaveWait').addEventListener('pointerdown', window.leaveBS);
+    
     bsRoomRef.once('value').then(function(snap) {
       var data = snap.val();
       var pIds = Object.keys(data.players);
@@ -666,7 +683,6 @@
     ctx.fillText(btnText, px/2, px - 22);
   }
 
-  // ИСПРАВЛЕНИЕ: Слушатель вешаем на canvas, а не на window, чтобы не блокировать кнопки в меню
   canvas.addEventListener('touchstart', function(e) {
     if (bsState === 'playing') {
       e.preventDefault();
@@ -899,7 +915,9 @@
 
   // Промокоды и Аллея славы
   window.showAlley = function() { showScreen('🏆 Аллея славы', '<div class="alley"><div class="alley-item dev"><div class="alley-num">1</div><div><div class="alley-name">Владимир</div><div class="alley-sub">(разработчик проекта)</div></div></div><div class="alley-item empty"><div class="alley-num">2</div><div><div class="alley-name">Не занято</div><div class="alley-sub">(чтобы занять обратитесь к разработчику)</div></div></div></div>', '<button class="btn primary" onclick="showOtherMenu()">⬅️ Назад</button>'); };
-  window.showPromo = function() { showScreen('🎁 Промокоды', '<input id="promoInput" class="name-input" maxlength="20" placeholder="Введи промокод"><button type="button" class="btn primary wide" onclick="checkPromo()" style="pointer-events:auto; cursor:pointer;">Активировать</button><div id="promoMsg" style="margin-top:10px; font-weight:bold;"></div>', '<button class="btn ghost" onclick="showOtherMenu()">⬅️ Назад</button>'); };
+  window.showPromo = function() { showScreen('🎁 Промокоды', '<input id="promoInput" class="name-input" maxlength="20" placeholder="Введи промокод"><button type="button" class="btn primary wide" id="btnActivatePromo" style="pointer-events:auto; cursor:pointer;">Активировать</button><div id="promoMsg" style="margin-top:10px; font-weight:bold;"></div>', '<button class="btn ghost" onclick="showOtherMenu()">⬅️ Назад</button>');
+    document.getElementById('btnActivatePromo').addEventListener('pointerdown', window.checkPromo);
+  };
   window.checkPromo = function() { var input = document.getElementById('promoInput'); var code = input ? input.value.trim() : ''; var msg = document.getElementById('promoMsg'); if (code === 'Админпромокод') { if (!db) { msg.style.color = '#ff4d6d'; msg.textContent = 'Ошибка: нет интернета.'; return; } msg.style.color = '#46e6a0'; msg.textContent = 'Успех! Начисляем 1000 очков...'; var scoreData = { name: currentPlayer, score: 1000, time: Date.now() }; db.ref('scores/snake/' + deviceId).set(scoreData); db.ref('scores/flappy/' + deviceId).set(scoreData); db.ref('scores/tanks/' + deviceId).set(scoreData); setTimeout(() => { msg.textContent = 'Готово! 1000 очков добавлены везде.'; beep(800, 0.2, 'sine', 0.1); setTimeout(() => { showOtherMenu(); }, 1500); }, 500); } else { msg.style.color = '#ff4d6d'; msg.textContent = 'Неверный промокод!'; beep(200, 0.2, 'sawtooth', 0.05); } };
 
   // --- ИНИЦИАЛИЗАЦИЯ ---
