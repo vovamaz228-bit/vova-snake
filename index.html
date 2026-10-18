@@ -343,11 +343,11 @@ function spawnTankEnemy(){
   for(var i=0;i<sp.length;i++){
     var s=sp[i];
     if(canMoveTo(s.x,s.y,20,20)){
-      tankEnemies.push({x:Math.round(s.x/10)*10,y:Math.round(s.y/10)*10,w:20,h:20,speed:60,dir:'down',cooldown:1.5,nextTurn:0});
+      tankEnemies.push({x:Math.round(s.x/10)*10,y:Math.round(s.y/10)*10,w:20,h:20,speed:65,dir:'down',cooldown:1.2});
       return;
     }
   }
-  tankEnemies.push({x:20,y:20,w:20,h:20,speed:60,dir:'down',cooldown:1.5,nextTurn:0});
+  tankEnemies.push({x:20,y:20,w:20,h:20,speed:65,dir:'down',cooldown:1.2});
 }
 
 window.tankInput=function(d,v){tankKeys[d]=v};
@@ -392,48 +392,64 @@ function updateTanks(dt){
       if(canMoveTo(nx,p.y,p.w,p.h))p.x=nx;
     }
   }
+
   if(tankEnemies.length===0)spawnTankEnemy();
+
+  // ====== НОВЫЙ ИИ: активно охотится и стреляет прицельно ======
   for(var i=tankEnemies.length-1;i>=0;i--){
-    var e=tankEnemies[i];e.cooldown-=dt/1000;e.nextTurn-=dt/1000;
-    var dx=p.x-e.x,dy=p.y-e.y,eSpeed=e.speed*(dt/1000);
-    var needNew=false,tx=e.x,ty=e.y;
-    if(e.dir==='up')ty-=eSpeed;
-    if(e.dir==='down')ty+=eSpeed;
-    if(e.dir==='left')tx-=eSpeed;
-    if(e.dir==='right')tx+=eSpeed;
-    if(!canMoveTo(tx,ty,e.w,e.h))needNew=true;
-    if(e.nextTurn<=0)needNew=true;
-    if(needNew){
-      var prefX=dx>0?'right':'left',prefY=dy>0?'down':'up';
-      var primary=Math.abs(dx)>Math.abs(dy)?prefX:prefY;
-      var secondary=Math.abs(dx)>Math.abs(dy)?prefY:prefX;
-      var dirs=[primary,secondary,prefX==='right'?'left':'right',prefY==='down'?'up':'down'];
-      if(e.dir==='up'||e.dir==='down')e.x=Math.round(e.x/10)*10;
-      else e.y=Math.round(e.y/10)*10;
-      for(var d of dirs){
-        var ax=e.x,ay=e.y;
-        if(d==='up')ay-=15;
-        if(d==='down')ay+=15;
-        if(d==='left')ax-=15;
-        if(d==='right')ax+=15;
-        if(canMoveTo(ax,ay,e.w,e.h)){e.dir=d;e.nextTurn=1+Math.random()*1.5;break}
+    var e=tankEnemies[i];
+    e.cooldown-=dt/1000;
+    var dx=(p.x+p.w/2)-(e.x+e.w/2);
+    var dy=(p.y+p.h/2)-(e.y+e.h/2);
+    var dist=Math.hypot(dx,dy)||1;
+    var eSpeed=e.speed*(dt/1000);
+
+    // Проверка прямой видимости (нет стен на линии огня)
+    var hasLOS=true;
+    var steps=12;
+    for(var s=1;s<steps;s++){
+      var t=s/steps;
+      var bx=(e.x+e.w/2)+dx*t;
+      var by=(e.y+e.h/2)+dy*t;
+      for(var wl of tankWalls){
+        if(bx>wl.x&&bx<wl.x+wl.w&&by>wl.y&&by<wl.y+wl.h){hasLOS=false;break}
+      }
+      if(!hasLOS)break;
+    }
+
+    // СТРЕЛЬБА — прицельно в игрока
+    if(e.cooldown<=0){
+      var vx=(dx/dist)*280;
+      var vy=(dy/dist)*280;
+      tankBullets.push({x:e.x+e.w/2,y:e.y+e.h/2,vx,vy,friendly:false});
+      beep(350,0.05,'square',0.025);
+      // Видит — стреляет чаще; не видит — реже
+      e.cooldown=hasLOS?(0.8+Math.random()*0.4):(1.5+Math.random()*0.7);
+    }
+
+    // ДВИЖЕНИЕ — всегда сокращаем дистанцию до игрока
+    var aimX=dx>0?'right':'left';
+    var aimY=dy>0?'down':'up';
+    var primary=Math.abs(dx)>Math.abs(dy)?aimX:aimY;
+    var secondary=Math.abs(dx)>Math.abs(dy)?aimY:aimX;
+    var tryDirs=[primary,secondary,aimX,aimY];
+    for(var d of tryDirs){
+      var nx=e.x,ny=e.y;
+      if(d==='up')ny-=eSpeed;
+      else if(d==='down')ny+=eSpeed;
+      else if(d==='left')nx-=eSpeed;
+      else if(d==='right')nx+=eSpeed;
+      if(canMoveTo(nx,ny,e.w,e.h)){
+        e.x=nx;e.y=ny;e.dir=d;
+        break;
       }
     }
-    if(e.dir==='up'&&canMoveTo(e.x,e.y-eSpeed,e.w,e.h))e.y-=eSpeed;
-    else if(e.dir==='down'&&canMoveTo(e.x,e.y+eSpeed,e.w,e.h))e.y+=eSpeed;
-    else if(e.dir==='left'&&canMoveTo(e.x-eSpeed,e.y,e.w,e.h))e.x-=eSpeed;
-    else if(e.dir==='right'&&canMoveTo(e.x+eSpeed,e.y,e.w,e.h))e.x+=eSpeed;
-    if(e.cooldown<=0){
-      e.cooldown=2.5;
-      var vx=0,vy=0;
-      if(e.dir==='up')vy=-200;
-      if(e.dir==='down')vy=200;
-      if(e.dir==='left')vx=-200;
-      if(e.dir==='right')vx=200;
-      tankBullets.push({x:e.x+10,y:e.y+10,vx,vy,friendly:false});
-    }
+
+    // Столкновение с игроком — смерть
     if(e.x<p.x+p.w&&e.x+e.w>p.x&&e.y<p.y+p.h&&e.y+e.h>p.y)return dieTanks();
   }
+  // ====== КОНЕЦ ИИ ======
+
   for(var i=tankBullets.length-1;i>=0;i--){
     var b=tankBullets[i];
     b.x+=b.vx*(dt/1000);b.y+=b.vy*(dt/1000);
@@ -446,8 +462,8 @@ function updateTanks(dt){
     if(hitW){tankBullets.splice(i,1);continue}
     if(b.friendly){
       for(var j=tankEnemies.length-1;j>=0;j--){
-        var e=tankEnemies[j];
-        if(b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h){
+        var e2=tankEnemies[j];
+        if(b.x>e2.x&&b.x<e2.x+e2.w&&b.y>e2.y&&b.y<e2.y+e2.h){
           tankEnemies.splice(j,1);tankBullets.splice(i,1);tankScore++;updateHud();beep(400,0.1,'square',0.05);break;
         }
       }
