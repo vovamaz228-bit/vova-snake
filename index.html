@@ -1,475 +1,171 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Морской бой онлайн</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 20px;
-      min-height: 100vh;
-      background: #080d18;
-      color: #e8f1ff;
-      font: 16px system-ui, sans-serif;
-    }
-    main { max-width: 900px; margin: auto; }
-    h1 { color: #46e6a0; }
-    button, input {
-      padding: 10px 14px;
-      border: 1px solid #466083;
-      border-radius: 10px;
-      background: #121d30;
-      color: white;
-      font: inherit;
-    }
-    button { cursor: pointer; }
-    button:hover { background: #1d3150; }
-    button:disabled { cursor: not-allowed; opacity: .5; }
-    input { width: 150px; }
-    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .panel {
-      margin: 16px 0;
-      padding: 16px;
-      border: 1px solid #263b5c;
-      border-radius: 14px;
-      background: #0d1524;
-    }
-    #status { min-height: 24px; color: #ffd166; }
-    #boards { display: flex; flex-wrap: wrap; gap: 28px; }
-    .board-wrap { min-width: 280px; }
-    .board {
-      display: grid;
-      grid-template-columns: repeat(10, 28px);
-      gap: 3px;
-      margin-top: 10px;
-    }
-    .cell {
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border-radius: 5px;
-      border: 1px solid #426083;
-      background: #142b46;
-      font-size: 14px;
-      line-height: 1;
-    }
-    .cell.ship { background: #54657c; }
-    .cell.hit { background: #b8324a; }
-    .cell.miss { background: #263548; color: #91a8c5; }
-    .cell.target { background: #155b63; }
-    .small { color: #9bb0cc; font-size: 13px; }
-    @media (max-width: 650px) {
-      body { padding: 12px; }
-      .board { grid-template-columns: repeat(10, min(8vw, 28px)); gap: 2px; }
-      .cell { width: min(8vw, 28px); height: min(8vw, 28px); }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Игры — Вова (версия 72)</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#05070d}
+  body{
+    background:radial-gradient(circle at 50% -10%,#16223f 0%,#080b14 55%,#05070d 100%);
+    color:#e8f1ff;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    display:flex;align-items:center;justify-content:center;min-height:100dvh;
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  #bg{position:fixed;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden}
+  #bg span{font-size:clamp(36px,12vw,150px);font-weight:900;line-height:.92;text-align:center;
+    text-transform:uppercase;letter-spacing:.02em;transform:rotate(-12deg);
+    color:rgba(255,255,255,.16);text-shadow:0 0 90px rgba(255,255,255,.14);}
+  #startScreen{position:fixed;inset:0;z-index:9999;background:#05070d;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+  #wrap{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;padding:16px;align-items:center;max-width:100vw}
+  #hud{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8ea6c9}
+  #hud b{color:#fff;font-weight:700;font-size:15px;letter-spacing:0}
+  #hudPlayer{color:#46e6a0;font-weight:700;font-size:13px;letter-spacing:0;text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%}
+  #stage{position:relative;line-height:0}
+  canvas{display:block;border-radius:18px;touch-action:none;box-shadow:0 0 0 1px rgba(120,180,255,.16),0 24px 70px -24px rgba(40,140,255,.75)}
+  #overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;border-radius:18px;background:rgba(6,10,20,.84);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);opacity:0;transition:opacity .2s ease;z-index:10;}
+  #overlay.show{opacity:1;pointer-events:auto;display:flex;}
+  #ov-title{margin:0;font-size:clamp(20px,5.6vw,28px);color:#46e6a0;text-shadow:0 0 15px rgba(70,230,160,.4);font-weight:800;}
+  #ov-text{margin:0;font-size:14px;line-height:1.55;color:#a9bfdd;max-height:44vh;overflow:auto;width:100%}
+  #ov-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;margin-top:4px}
+  .btn{appearance:none;border:1px solid rgba(120,180,255,.35);background:rgba(70,140,255,.14);color:#e8f1ff;padding:10px 18px;border-radius:12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s,transform .08s;pointer-events:auto;width:100%;max-width:280px;touch-action:manipulation;}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:linear-gradient(90deg,rgba(70,230,160,.3),rgba(58,168,255,.3));border-color:rgba(70,230,160,.5)}
+  .btn.ghost{background:transparent;color:#8ea6c9;border-color:rgba(120,180,255,.2)}
+  .btn.danger{background:rgba(255,77,109,.16);border-color:rgba(255,77,109,.45);color:#ffb3c1}
+  .btn.wide{width:100%;max-width:260px;padding:15px;font-size:16px;}
+  .name-input{width:100%;max-width:260px;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,180,255,.35);background:rgba(10,16,30,.85);color:#fff;font:inherit;font-size:16px;text-align:center;outline:none;margin-bottom:10px;touch-action:manipulation;}
+  .name-input:focus{border-color:rgba(70,230,160,.7);box-shadow:0 0 0 3px rgba(70,230,160,.15)}
+  .stats{width:100%;border-collapse:collapse;font-size:13px}
+  .stats th,.stats td{padding:7px 6px;text-align:left;border-bottom:1px solid rgba(120,180,255,.1)}
+  .stats th{color:#8ea6c9;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.06em;position:sticky;top:0;background:rgba(6,10,20,.95)}
+  .stats td{color:#e8f1ff}
+  .stats tbody tr:first-child td{color:#46e6a0;font-weight:700}
+  .stats td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .alley{width:100%;display:flex;flex-direction:column;gap:10px;text-align:left;padding:4px 2px}
+  .alley-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(120,180,255,.2);background:rgba(10,16,30,.6);}
+  .alley-num{width:30px;height:30px;flex:0 0 30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;background:rgba(70,140,255,.16);color:#8ea6c9;}
+  .alley-name{font-size:15px;font-weight:700;color:#fff;line-height:1.25}
+  .alley-sub{font-size:12px;color:#8ea6c9;margin-top:2px}
+  .alley-item.dev{border-color:rgba(70,230,160,.45);background:rgba(70,230,160,.08)}
+  .alley-item.dev .alley-num{background:linear-gradient(135deg,#46e6a0,#3aa8ff);color:#06281f}
+  .alley-item.empty{opacity:.85}
+  #tank-controls{position:absolute;inset:0;pointer-events:none;display:none;z-index:5}
+  #tank-controls.active{display:block}
+  .d-pad{position:absolute;bottom:20px;left:20px;display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px);gap:5px;pointer-events:auto;}
+  .d-pad button{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:10px;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;}
+  .d-pad button:active{background:rgba(255,255,255,0.5)}
+  .d-pad .up{grid-column:2;grid-row:1}
+  .d-pad .left{grid-column:1;grid-row:2}
+  .d-pad .right{grid-column:3;grid-row:2}
+  .d-pad .down{grid-column:2;grid-row:3}
+  #fire-btn{position:absolute;bottom:40px;right:30px;width:80px;height:80px;border-radius:50%;background:rgba(255,77,109,0.3);border:2px solid rgba(255,77,109,0.6);color:#fff;font-size:16px;font-weight:bold;pointer-events:auto;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;}
+  #fire-btn:active{background:rgba(255,77,109,0.7)}
+</style>
 </head>
 <body>
-<main>
-  <h1>Морской бой</h1>
 
-  <section class="panel">
-    <div class="row">
-      <button id="createBtn">Создать игру</button>
-      <input id="roomInput" maxlength="8" placeholder="Код комнаты">
-      <button id="joinBtn">Войти по коду</button>
-    </div>
-    <p class="small">Создай комнату и передай её код второму игроку.</p>
-    <div id="roomLabel"></div>
-    <div id="status">Подключение к серверу…</div>
-    <button id="readyBtn" hidden>ГОТОВ</button>
-  </section>
+<div id="startScreen">
+  <h1 style="color:#46e6a0;font-size:28px;margin-bottom:10px;text-align:center;">Вход в игру</h1>
+  <p style="color:#8ea6c9;font-size:12px;margin-bottom:20px;text-align:center;">Если имени нет — создастся новый аккаунт.<br>Если имя занято — введи свой пароль.</p>
+  <input id="nameInput" class="name-input" maxlength="16" placeholder="Твоё имя" autocomplete="off">
+  <input id="passInput" type="password" class="name-input" maxlength="20" placeholder="Пароль" autocomplete="off">
+  <div id="loginStatus" style="color:#ffd166;font-size:14px;font-weight:bold;min-height:20px;margin-bottom:10px;text-align:center;"></div>
+  <button type="button" id="loginBtn" class="btn ghost wide" onclick="startGame()" style="background:rgba(70,140,255,.2);">ВОЙТИ / ЗАРЕГИСТРИРОВАТЬСЯ</button>
+</div>
 
-  <section id="boards" hidden>
-    <div class="board-wrap">
-      <b>Моё поле</b>
-      <div class="small">Серые клетки — ваши корабли</div>
-      <div id="myBoard" class="board"></div>
-    </div>
-    <div class="board-wrap">
-      <b>Поле соперника</b>
-      <div class="small">Нажмите клетку, чтобы выстрелить</div>
-      <div id="enemyBoard" class="board"></div>
-    </div>
-  </section>
-</main>
+<div id="bg"><span>Вова<br>разработчик<br>этой игры</span></div>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<div id="wrap">
+  <div id="hud">
+    <span id="hudPlayer">—</span>
+    <span>Счёт <b id="score">0</b></span>
+    <span>Рекорд <b id="best">0</b></span>
+  </div>
+  <div id="stage">
+    <canvas id="c" style="display:none;"></canvas>
+    <div id="tank-controls">
+      <div class="d-pad">
+        <button class="up" onpointerdown="event.preventDefault(); tankInput('up', true)" onpointerup="tankInput('up', false)" onpointerleave="tankInput('up', false)">▲</button>
+        <button class="left" onpointerdown="event.preventDefault(); tankInput('left', true)" onpointerup="tankInput('left', false)" onpointerleave="tankInput('left', false)">◀</button>
+        <button class="right" onpointerdown="event.preventDefault(); tankInput('right', true)" onpointerup="tankInput('right', false)" onpointerleave="tankInput('right', false)">▶</button>
+        <button class="down" onpointerdown="event.preventDefault(); tankInput('down', true)" onpointerup="tankInput('down', false)" onpointerleave="tankInput('down', false)">▼</button>
+      </div>
+      <button id="fire-btn" onpointerdown="event.preventDefault(); tankFire()">ОГОНЬ</button>
+    </div>
+    <div id="overlay">
+      <h1 id="ov-title">Игра</h1>
+      <div id="ov-text"></div>
+      <div id="ov-actions"></div>
+    </div>
+  </div>
+</div>
 
 <script>
-  // Вставьте сюда настройки своего Firebase-проекта.
-  const firebaseConfig = {
-    apiKey: "ВСТАВЬТЕ_API_KEY",
-    authDomain: "ВАШ_ПРОЕКТ.firebaseapp.com",
-    databaseURL: "https://ВАШ_ПРОЕКТ-default-rtdb.firebaseio.com",
-    projectId: "ВАШ_ПРОЕКТ",
-    appId: "ВСТАВЬТЕ_APP_ID"
+  var store = {
+    get: function(k) { try { return localStorage.getItem(k); } catch(e) { return null; } },
+    set: function(k, v) { try { localStorage.setItem(k, v); } catch(e) {} },
+    remove: function(k) { try { localStorage.removeItem(k); } catch(e) {} }
   };
 
-  const statusEl = document.getElementById("status");
-  const roomLabel = document.getElementById("roomLabel");
-  const readyBtn = document.getElementById("readyBtn");
-  const boardsEl = document.getElementById("boards");
-  const myBoardEl = document.getElementById("myBoard");
-  const enemyBoardEl = document.getElementById("enemyBoard");
+  var db = null; 
+  var canvas = document.getElementById('c'); 
+  var ctx = canvas ? canvas.getContext('2d') : null;
+  var overlay = document.getElementById('overlay'); 
+  var ovTitle = document.getElementById('ov-title'); 
+  var ovText = document.getElementById('ov-text'); 
+  var ovActions = document.getElementById('ov-actions');
+  var scoreEl = document.getElementById('score'); 
+  var bestEl = document.getElementById('best'); 
+  var hudPlayer = document.getElementById('hudPlayer');
+  var tankControls = document.getElementById('tank-controls');
 
-  let db;
-  let roomId = "";
-  let playerId = sessionStorage.getItem("battleshipPlayerId");
+  var currentPlayer = '';
+  var players = {}; 
+  var state = 'name';
+  var currentScreen = null;
 
-  if (!playerId) {
-    playerId = "p_" + Math.random().toString(36).slice(2, 12);
-    sessionStorage.setItem("battleshipPlayerId", playerId);
-  }
+  var physicalDeviceId = store.get('snake.physicalDeviceId') || 'dev_' + Math.random().toString(36).substring(2, 10);
+  store.set('snake.physicalDeviceId', physicalDeviceId);
+  var deviceId = physicalDeviceId;
 
-  let roomData = null;
-  let roomListener = null;
-  let busy = false;
+  var px = 400, cell = 20, GRID = 20;
+  var particles = [];
+  var loopStarted = false;
+  var lastTime = 0;
 
-  try {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-    statusEl.textContent = "Подключено. Создайте комнату или введите её код.";
-  } catch (e) {
-    statusEl.textContent = "Не удалось подключиться к Firebase. Проверьте firebaseConfig.";
-  }
+  // Игры
+  var snake, dir, queue, food, score, acc, stepMs;
+  var flappyBird = { x: 50, y: 150, vy: 0, gravity: 0.25, jump: -4.5, size: 20 };
+  var flappyPipes = [], flappyScore = 0, flappyState = 'ready', flappySpeed = 2;
+  var tankPlayer = { x: 200, y: 200, w: 20, h: 20, speed: 120, dir: 'up', cooldown: 0 };
+  var tankEnemies = [], tankBullets = [], tankWalls = [], tankScore = 0;
+  var tankKeys = { up: false, down: false, left: false, right: false };
 
-  function makeBoard() {
-    const board = Array(100).fill(0);
-    const ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+  // Морской бой
+  var bsRoom = '';
+  var bsMyGrid = [], bsEnemyGrid = [];
+  var bsState = 'menu'; 
+  var bsRoomRef = null;
+  var bsIsMyTurn = false;
+  var bsView = 'enemy';
+  var bsMyHits = 0, bsEnemyHits = 0;
+  var bsTotalShipCells = 20;
+  var bsPollTimer = null;
+  var bsGameOverShown = false;
+  var bsLastShots = {};
+  var bsJoinTime = 0;
 
-    for (const length of ships) {
-      let placed = false;
-      let tries = 0;
+  function esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmtDate(ts) { var d = new Date(ts), n = new Date(); return d.toDateString() === n.toDateString() ? d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'}); }
 
-      while (!placed && tries++ < 2000) {
-        const horizontal = Math.random() < 0.5;
-        const row = Math.floor(Math.random() * 10);
-        const col = Math.floor(Math.random() * 10);
-
-        if (horizontal && col + length > 10) continue;
-        if (!horizontal && row + length > 10) continue;
-
-        const cells = [];
-        for (let i = 0; i < length; i++) {
-          cells.push(horizontal ? row * 10 + col + i : (row + i) * 10 + col);
-        }
-        if (cells.some(index => board[index] === 1)) continue;
-
-        cells.forEach(index => board[index] = 1);
-        placed = true;
-      }
-
-      if (!placed) return makeBoard();
-    }
-    return board;
-  }
-
-  function roomRef() {
-    return db.ref("battleshipRooms/" + roomId);
-  }
-
-  function showError(error) {
-    statusEl.textContent = "Ошибка: " + (error?.message || error);
-    busy = false;
-  }
-
-  async function createRoom() {
-    if (!db || busy) return;
-    busy = true;
-    statusEl.textContent = "Создаём комнату…";
-
+  var actx = null;
+  function beep(freq, dur, type, vol) {
+    type = type || 'sine'; vol = vol || 0.05;
     try {
-      let code, ref, snap;
-      do {
-        code = Math.random().toString(36).slice(2, 7).toUpperCase();
-        ref = db.ref("battleshipRooms/" + code);
-        snap = await ref.once("value");
-      } while (snap.exists());
-
-      roomId = code;
-      await ref.set({
-        status: "waiting",
-        turn: "",
-        winner: "",
-        players: {
-          p1: {
-            id: playerId,
-            name: "Игрок 1",
-            ready: false,
-            board: makeBoard(),
-            shots: Array(100).fill(0),
-            remaining: 20
-          }
-        }
-      });
-
-      busy = false;
-      watchRoom();
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function joinRoom() {
-    if (!db || busy) return;
-
-    const code = document.getElementById("roomInput").value.trim().toUpperCase();
-    if (!code) {
-      statusEl.textContent = "Введите код комнаты.";
-      return;
-    }
-
-    busy = true;
-    roomId = code;
-
-    try {
-      const result = await roomRef().transaction(room => {
-        if (!room || room.status !== "waiting") return;
-        if (room.players?.p2) return;
-        if (room.players?.p1?.id === playerId) return;
-
-        room.players = room.players || {};
-        room.players.p2 = {
-          id: playerId,
-          name: "Игрок 2",
-          ready: false,
-          board: makeBoard(),
-          shots: Array(100).fill(0),
-          remaining: 20
-        };
-        return room;
-      });
-
-      if (!result.committed) {
-        roomId = "";
-        busy = false;
-        statusEl.textContent = "Комната не найдена, уже заполнена или игра уже началась.";
-        return;
-      }
-
-      busy = false;
-      watchRoom();
-    } catch (e) {
-      roomId = "";
-      showError(e);
-    }
-  }
-
-  function watchRoom() {
-    if (roomListener) roomRef().off("value", roomListener);
-
-    roomListener = snapshot => {
-      roomData = snapshot.val();
-
-      if (!roomData) {
-        statusEl.textContent = "Комната больше не существует.";
-        return;
-      }
-
-      const player = getMyPlayer();
-      if (!player) {
-        statusEl.textContent = "Вы не числитесь игроком в этой комнате.";
-        return;
-      }
-
-      roomLabel.textContent = "Код комнаты: " + roomId;
-      boardsEl.hidden = false;
-      drawBoards();
-
-      const players = roomData.players || {};
-      const opponent = getOpponent();
-
-      if (roomData.status === "waiting") {
-        if (!opponent) {
-          statusEl.textContent = "Ждём второго игрока. Передайте ему код комнаты.";
-        } else if (!player.ready) {
-          statusEl.textContent = "Соперник подключился. Нажмите «ГОТОВ».";
-        } else if (!opponent.ready) {
-          statusEl.textContent = "Вы готовы. Ждём, пока соперник нажмёт «ГОТОВ».";
-        } else {
-          statusEl.textContent = "Оба игрока готовы. Запускаем игру…";
-        }
-
-        readyBtn.hidden = !opponent || player.ready;
-        readyBtn.disabled = busy;
-      } else if (roomData.status === "playing") {
-        readyBtn.hidden = true;
-        statusEl.textContent = roomData.turn === playerId
-          ? "Ваш ход — стреляйте по полю соперника."
-          : "Ход соперника.";
-      } else if (roomData.status === "finished") {
-        readyBtn.hidden = true;
-        statusEl.textContent = roomData.winner === playerId ? "Вы победили!" : "Вы проиграли.";
-      }
-    };
-
-    roomRef().on("value", roomListener);
-  }
-
-  function getMyPlayer() {
-    if (!roomData?.players) return null;
-    return Object.values(roomData.players).find(p => p.id === playerId) || null;
-  }
-
-  function getOpponent() {
-    if (!roomData?.players) return null;
-    return Object.values(roomData.players).find(p => p.id !== playerId) || null;
-  }
-
-  function drawBoards() {
-    const mine = getMyPlayer();
-    const enemy = getOpponent();
-    if (!mine) return;
-
-    myBoardEl.replaceChildren();
-    enemyBoardEl.replaceChildren();
-
-    for (let i = 0; i < 100; i++) {
-      const myCell = document.createElement("button");
-      myCell.className = "cell";
-      myCell.type = "button";
-      if (mine.board?.[i]) myCell.classList.add("ship");
-      if (mine.shots?.[i]) myCell.classList.add("hit");
-      myCell.disabled = true;
-      myBoardEl.appendChild(myCell);
-
-      const enemyCell = document.createElement("button");
-      enemyCell.className = "cell";
-      enemyCell.type = "button";
-
-      if (mine.shots?.[i]) {
-        // В shots хранятся все уже обстрелянные клетки.
-        const lastShot = roomData.lastShot;
-        if (lastShot?.by === playerId && lastShot.cell === i && lastShot.hit) {
-          enemyCell.classList.add("hit");
-          enemyCell.textContent = "✕";
-        } else {
-          enemyCell.classList.add("miss");
-          enemyCell.textContent = "•";
-        }
-      } else {
-        enemyCell.classList.add("target");
-      }
-
-      enemyCell.disabled = roomData.status !== "playing"
-        || roomData.turn !== playerId
-        || !enemy
-        || !!mine.shots?.[i]
-        || busy;
-
-      enemyCell.addEventListener("click", () => shoot(i));
-      enemyBoardEl.appendChild(enemyCell);
-    }
-
-    // Показываем на своём поле попадания соперника.
-    const enemyShots = enemy?.shots || [];
-    for (let i = 0; i < 100; i++) {
-      if (enemyShots[i]) {
-        const cell = myBoardEl.children[i];
-        cell.classList.remove("ship");
-        cell.classList.add(mine.board[i] ? "hit" : "miss");
-        cell.textContent = mine.board[i] ? "✕" : "•";
-      }
-    }
-  }
-
-  async function markReady() {
-    if (!roomId || busy) return;
-    busy = true;
-    statusEl.textContent = "Сохраняем готовность…";
-
-    try {
-      await roomRef().transaction(room => {
-        if (!room || room.status !== "waiting") return;
-        const key = Object.keys(room.players || {}).find(k => room.players[k].id === playerId);
-        if (!key || !room.players.p1 || !room.players.p2) return;
-
-        room.players[key].ready = true;
-
-        // Проверяем обоих игроков внутри одной транзакции:
-        // последний нажавший «ГОТОВ» запускает матч сам.
-        if (room.players.p1.ready && room.players.p2.ready) {
-          room.status = "playing";
-          room.turn = room.players.p1.id;
-        }
-        return room;
-      });
-
-      busy = false;
-      if (roomData) drawBoards();
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function shoot(cellIndex) {
-    if (!roomId || busy || !roomData) return;
-
-    const opponent = getOpponent();
-    if (!opponent) return;
-
-    busy = true;
-    drawBoards();
-
-    try {
-      const result = await roomRef().transaction(room => {
-        if (!room || room.status !== "playing" || room.turn !== playerId) return;
-
-        const players = room.players || {};
-        const shooterKey = Object.keys(players).find(k => players[k].id === playerId);
-        const targetKey = Object.keys(players).find(k => players[k].id !== playerId);
-        if (!shooterKey || !targetKey) return;
-
-        const shooter = players[shooterKey];
-        const target = players[targetKey];
-        shooter.shots = shooter.shots || Array(100).fill(0);
-
-        // Не разрешаем повторно стрелять в ту же клетку.
-        if (shooter.shots[cellIndex]) return;
-
-        shooter.shots[cellIndex] = 1;
-        const hit = target.board[cellIndex] === 1;
-
-        if (hit) {
-          target.remaining = Math.max(0, (target.remaining ?? 20) - 1);
-        }
-
-        room.lastShot = {
-          by: playerId,
-          cell: cellIndex,
-          hit: hit,
-          time: Date.now()
-        };
-
-        if (target.remaining <= 0) {
-          room.status = "finished";
-          room.winner = playerId;
-          room.turn = "";
-        } else if (!hit) {
-          // При промахе ход переходит сопернику. При попадании ход остаётся.
-          room.turn = target.id;
-        }
-
-        return room;
-      });
-
-      busy = false;
-      if (!result.committed) statusEl.textContent = "Выстрел не принят. Проверьте, чей сейчас ход.";
-      if (roomData) drawBoards();
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  document.getElementById("createBtn").addEventListener("click", createRoom);
-  document.getElementById("joinBtn").addEventListener("click", joinRoom);
-  readyBtn.addEventListener("click", markReady);
-</script>
-</body>
-</html>
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g).connect(actx.destination);
+      o.start(); g.gain.exponentialRampToValueAt
